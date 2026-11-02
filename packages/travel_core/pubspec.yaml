@@ -1,0 +1,5 @@
+name: travel_core
+description: Shared reimbursement rules for desktop and mobile.
+version: 0.1.0
+environment:
+  sdk: '>=3.6.0 <4.0.0'

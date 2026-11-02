@@ -1,0 +1,2 @@
+-r ../engine/requirements.txt
+packaging>=24,<27

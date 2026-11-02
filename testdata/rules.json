@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "time-boundary-before",
+      "title": "前后150分钟边界",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "rideAt": "2026-10-20T09:30:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": "p"
+      }
+    },
+    {
+      "id": "time-boundary-after",
+      "title": "前后150分钟边界",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "rideAt": "2026-10-20T14:30:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": "p"
+      }
+    },
+    {
+      "id": "outside-boundary",
+      "title": "超出一秒不自动匹配",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "rideAt": "2026-10-20T14:30:01+08:00"
+        }
+      ],
+      "selected": {
+        "trip": null
+      }
+    },
+    {
+      "id": "missing-time",
+      "title": "金额唯一但无行程时间仍待处理",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000
+        }
+      ],
+      "selected": {
+        "trip": null
+      }
+    },
+    {
+      "id": "discount-exact",
+      "title": "优惠精确解释差额",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": "p"
+      }
+    },
+    {
+      "id": "discount-one-cent-off",
+      "title": "优惠少一分不扩大容差",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 349,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": null
+      }
+    },
+    {
+      "id": "equal-candidates",
+      "title": "同金额同时间不强选",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "a",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        },
+        {
+          "id": "b",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": null
+      }
+    },
+    {
+      "id": "payment-contention",
+      "title": "同一支付不能分配给两个费用",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        },
+        {
+          "id": "trip2",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "p",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": null,
+        "trip2": null
+      }
+    },
+    {
+      "id": "nearest-time",
+      "title": "同金额按时间选择最近项",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "near",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:01:00+08:00"
+        },
+        {
+          "id": "far",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4650,
+          "discountCents": 350,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        }
+      ],
+      "selected": {
+        "trip": "near"
+      }
+    },
+    {
+      "id": "amount-before-time",
+      "title": "金额差优先于时间差",
+      "charges": [
+        {
+          "id": "trip",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "startedAt": "2026-10-20T12:00:00+08:00"
+        }
+      ],
+      "payments": [
+        {
+          "id": "exact",
+          "category": "local",
+          "platform": "didi",
+          "cents": 5000,
+          "discountCents": 0,
+          "rideAt": "2026-10-20T12:10:00+08:00"
+        },
+        {
+          "id": "close",
+          "category": "local",
+          "platform": "didi",
+          "cents": 4990,
+          "discountCents": 0,
+          "rideAt": "2026-10-20T12:00:01+08:00"
+        }
+      ],
+      "selected": {
+        "trip": "exact"
+      }
+    }
+  ]
+}
