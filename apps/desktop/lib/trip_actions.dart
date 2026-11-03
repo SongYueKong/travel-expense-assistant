@@ -16,6 +16,7 @@ class TripActionsBar extends StatelessWidget {
   final TimeMatchSettings timeSettings;
   final VoidCallback onPdf, onAddInvoice, onAddPayments, onExport;
   final VoidCallback? onAddTaxi;
+  final VoidCallback? onViewExport;
   final ValueChanged<TripMoreAction> onMore;
   const TripActionsBar(
       {super.key,
@@ -27,6 +28,7 @@ class TripActionsBar extends StatelessWidget {
       required this.onPdf,
       required this.onAddInvoice,
       this.onAddTaxi,
+      this.onViewExport,
       required this.onAddPayments,
       required this.onExport,
       required this.onMore});
@@ -71,6 +73,11 @@ class TripActionsBar extends StatelessWidget {
                 onPressed: busy ? null : onExport,
                 icon: const Icon(Icons.picture_as_pdf),
                 label: const Text('导出 PDF')),
+            if (onViewExport != null)
+              OutlinedButton.icon(
+                  onPressed: busy ? null : onViewExport,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('查看导出 PDF')),
             PopupMenuButton<TripMoreAction>(
                 tooltip: '设置／更多',
                 enabled: !busy,
@@ -92,7 +99,7 @@ class TripActionsBar extends StatelessWidget {
                           '乘车前后 ${timeSettings.rideToleranceMinutes} 分钟；支付前后 ${timeSettings.paymentDelayMinutes} 分钟'),
                       const PopupMenuDivider(),
                       item(TripMoreAction.paymentLayout, Icons.grid_view,
-                          '支付截图排版', '设置 A4 方向及行列数，本机保存并自动沿用'),
+                          '支付截图排版', '设置 A4 方向、行列数及统一页面大小'),
                       const PopupMenuDivider(),
                       item(
                           TripMoreAction.mailImport,

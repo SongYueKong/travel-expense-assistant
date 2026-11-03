@@ -2,13 +2,18 @@
 class PaymentLayout {
   final String orientation;
   final int rows, columns;
+  final bool uniformPages;
   const PaymentLayout.defaults()
       : orientation = 'landscape',
         rows = 2,
-        columns = 4;
+        columns = 4,
+        uniformPages = false;
 
   PaymentLayout(
-      {required this.orientation, required this.rows, required this.columns}) {
+      {required this.orientation,
+      required this.rows,
+      required this.columns,
+      this.uniformPages = false}) {
     if (!['landscape', 'portrait'].contains(orientation) ||
         rows < 1 ||
         rows > 8 ||
@@ -21,17 +26,23 @@ class PaymentLayout {
   factory PaymentLayout.fromJson(Map<String, dynamic> value) {
     if (value['orientation'] is! String ||
         value['rows'] is! int ||
-        value['columns'] is! int) {
+        value['columns'] is! int ||
+        (value.containsKey('uniformPages') && value['uniformPages'] is! bool)) {
       throw const FormatException('支付截图排版设置格式无效');
     }
     return PaymentLayout(
         orientation: value['orientation'],
         rows: value['rows'],
-        columns: value['columns']);
+        columns: value['columns'],
+        uniformPages: value['uniformPages'] ?? false);
   }
 
   bool get landscape => orientation == 'landscape';
   int get perPage => rows * columns;
-  Map<String, dynamic> toJson() =>
-      {'orientation': orientation, 'rows': rows, 'columns': columns};
+  Map<String, dynamic> toJson() => {
+        'orientation': orientation,
+        'rows': rows,
+        'columns': columns,
+        'uniformPages': uniformPages
+      };
 }

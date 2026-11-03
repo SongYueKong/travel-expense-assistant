@@ -19,6 +19,7 @@ from summary_page import build_summary_pdf
 from typography import report_fonts
 from document_preview import preview_pdf
 from payment_pages import build_payment_pages, resolve_payment_layout
+from uniform_pages import uniform_pages
 from taxi_pages import build_taxi_pages
 from statement_page import build_statement_image
 from hotel_identity import invoice_seller
@@ -96,7 +97,9 @@ def inspect_file(path: str, material_dir: str, source_name: str | None = None, p
 
 def export_pdf(manifest: dict, output: str) -> dict:
     """编号、页序由客户端快照提供；此处只负责渲染。"""
-    resolve_payment_layout(manifest.get('paymentLayout'))
+    page_size, _, _ = resolve_payment_layout(manifest.get('paymentLayout'))
+    uniform = (manifest.get('paymentLayout') or {}).get('uniformPages', False)
+    if type(uniform) is not bool: raise ValueError('统一页面设置必须为布尔值')
     destination = Path(output).resolve()
     if destination.suffix.lower() != '.pdf': raise ValueError('输出必须为 PDF')
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +110,10 @@ def export_pdf(manifest: dict, output: str) -> dict:
         writer = PdfWriter()
         if manifest.get('summary'):
             summary_file=Path(temp)/'summary.pdf'
-            build_summary_pdf(manifest,summary_file)
+            if uniform:
+                build_summary_pdf(manifest,summary_file,page_size=page_size)
+            else:
+                build_summary_pdf(manifest,summary_file)
             writer.append(str(summary_file))
         for entry in invoices:
             if entry.get('paperTaxi'): continue
@@ -150,6 +156,8 @@ def export_pdf(manifest: dict, output: str) -> dict:
             build_payment_pages(pictures, grid_file, manifest.get('draft',False), manifest.get('paymentLayout'))
             writer.append(str(grid_file))
         staged = Path(temp)/'complete.pdf'
+        if uniform:
+            writer = uniform_pages(writer, page_size)
         writer.write(staged)
         pages = len(PdfReader(staged).pages)
         os.replace(staged, destination)

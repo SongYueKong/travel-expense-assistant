@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import importlib.metadata as metadata
 import json
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import sys
@@ -62,7 +63,7 @@ def main():
     for name in ['LICENSE','THIRD_PARTY_NOTICES.md','SOURCE_CODE.txt']:
         shutil.copy2(root/name,stage/name)
     source_info=stage/'SOURCE_CODE.txt'
-    source_info.write_text(source_info.read_text(encoding='utf-8').replace('0.1.11',args.version),encoding='utf-8')
+    source_info.write_text(re.sub(r'\b\d+\.\d+\.\d+\b',args.version,source_info.read_text(encoding='utf-8')),encoding='utf-8')
     usage='''差旅报账助手（Windows 10 / 11，64位）
 
 使用：完整解压到任意普通文件夹，双击“差旅报账助手.exe”。请勿在压缩包内直接运行，不要只复制exe。

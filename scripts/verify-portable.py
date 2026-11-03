@@ -50,6 +50,21 @@ def main():
             assert abs(float(page.mediabox.height)-297*72/25.4)<0.01
         assert '001-07' in configured_pages[-1].extract_text()
         results['configurablePaymentLayout']=True
+        summary_output=temp/'summary-uniform.pdf'
+        row={'number':'001','category':'intercity','description':'TEST',
+             'invoiceCents':10000,'paymentCents':10000,'reimbursementCents':10000,'paymentNumbers':['001']}
+        export_pdf({'invoices':[{'number':'001','path':str(pdf)}],
+                    'summary':[row],'categoryTotals':[dict(row)],
+                    'grandTotals':{key:10000 for key in ['invoiceCents','paymentCents','reimbursementCents']},
+                    'paymentLayout':{'orientation':'portrait','rows':2,'columns':4,'uniformPages':True}},str(summary_output))
+        summary_pages=PdfReader(summary_output).pages
+        assert len(summary_pages)==2
+        assert '壹佰元整' in summary_pages[0].extract_text()
+        assert '核算口径' not in summary_pages[0].extract_text()
+        for page in summary_pages:
+            assert abs(float(page.mediabox.width)-210*72/25.4)<0.01
+            assert abs(float(page.mediabox.height)-297*72/25.4)<0.01
+        results['uppercaseTotalAndUniformPages']=True
         inspected=inspect_file(str(image),str(temp/'materials'));results['ocrAvailable']=inspected.get('ocrAvailable',False);results['ocrReason']=inspected.get('ocrReason')
         env=dict(os.environ);env['TRAVEL_ASSISTANT_DATA_DIR']=str(temp/'GUI 数据自检');env['PYTHONHOME']='Z:/NO_PYTHON';env['PYTHONPATH']='Z:/NO_PYTHON'
         windir=env.get('WINDIR','C:/Windows');env['PATH']=f'{windir}/System32;{windir};{windir}/System32/WindowsPowerShell/v1.0'

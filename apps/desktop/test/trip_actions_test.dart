@@ -60,9 +60,11 @@ void main() {
                 onAddInvoice: () => actions++,
                 onAddPayments: () => actions++,
                 onExport: () => actions++,
+                onViewExport: () => actions++,
                 onMore: (_) => actions++)));
     await tester.pumpWidget(bar(true));
     await tester.tap(find.text('导出 PDF'));
+    await tester.tap(find.text('查看导出 PDF'));
     expect(actions, 0);
     expect(
         tester

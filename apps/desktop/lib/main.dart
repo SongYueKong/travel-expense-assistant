@@ -35,6 +35,8 @@ import 'hotel_check_dialog.dart';
 import 'taxi_dialog.dart';
 import 'payment_layout.dart';
 import 'payment_layout_dialog.dart';
+import 'exported_pdf_dialog.dart';
+import 'open_pdf.dart';
 
 final runtimePaths = RuntimePaths.resolve();
 String get projectRoot => runtimePaths.workspaceRoot;
@@ -122,6 +124,7 @@ class _WorkspaceState extends State<Workspace> {
   List<Map<String, dynamic>> tasks = [];
   Map<String, dynamic>? task;
   PaymentLayout paymentLayout = const PaymentLayout.defaults();
+  final Map<String, Map<String, dynamic>> recentExports = {};
   bool busy = true;
   String? error;
   String status = '正在打开本地工作空间';
@@ -447,10 +450,13 @@ class _WorkspaceState extends State<Workspace> {
     if (mounted) setState(() {});
   }
 
-  void message(Object value) {
+  void message(Object value, {VoidCallback? viewPdf}) {
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$value')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$value'),
+          action: viewPdf == null
+              ? null
+              : SnackBarAction(label: '查看 PDF', onPressed: viewPdf)));
     }
   }
 
@@ -705,6 +711,7 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   Future<void> export() async {
+    final exportingTask = task!;
     late final Map<String, dynamic> manifest;
     try {
       manifest = buildTaskExportManifest(task!);
@@ -729,16 +736,46 @@ class _WorkspaceState extends State<Workspace> {
         'manifest': manifest,
         'output': location.path,
       });
+      String? archiveError;
       try {
-        await store!.recordExport(task!, location.path);
+        await store!.recordExport(exportingTask, location.path);
       } catch (e) {
-        status = 'PDF已导出至 ${location.path}，但差旅文件夹归档失败：$e';
-        message(status);
-        return;
+        archiveError = '$e';
       }
-      status = '已导出 ${output['pages']} 页 · ${location.path}';
-      message(status);
+      final history = exportedPdfFiles(exportingTask);
+      recentExports[exportingTask['id']] =
+          archiveError == null && history.isNotEmpty
+              ? history.first
+              : {
+                  'path': location.path,
+                  'name': File(location.path).uri.pathSegments.last
+                };
+      final files = exportedPdfFiles(exportingTask,
+          recent: recentExports[exportingTask['id']]);
+      status =
+          '已导出 ${output['pages']} 页 · ${location.path}${archiveError == null ? '' : '；差旅文件夹归档失败：$archiveError'}';
+      message(status, viewPdf: () => openExport(files.first['path']));
     });
+  }
+
+  Future<void> openExport(String path) async {
+    try {
+      await openPdfWithDefaultApp(path);
+    } catch (e) {
+      message(e);
+    }
+  }
+
+  Future<void> showExports(List<Map<String, dynamic>> files) async {
+    if (!mounted || files.isEmpty) return;
+    if (files.length == 1) {
+      await openExport(files.single['path']);
+      return;
+    }
+    await showDialog<void>(
+        context: context,
+        builder: (_) =>
+            ExportedPdfDialog(files: files, openFile: openPdfWithDefaultApp));
   }
 
   @override
@@ -876,6 +913,14 @@ class _WorkspaceState extends State<Workspace> {
                                   onAddTaxi: addTaxi,
                                   onAddPayments: supplementPayments,
                                   onExport: export,
+                                  onViewExport: exportedPdfFiles(task!,
+                                              recent:
+                                                  recentExports[task!['id']])
+                                          .isEmpty
+                                      ? null
+                                      : () => showExports(exportedPdfFiles(
+                                          task!,
+                                          recent: recentExports[task!['id']])),
                                   onMore: moreAction),
                               const SizedBox(height: 20),
                               Card(

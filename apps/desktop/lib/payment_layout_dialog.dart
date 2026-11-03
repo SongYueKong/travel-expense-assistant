@@ -15,11 +15,14 @@ class _PaymentLayoutDialogState extends State<PaymentLayoutDialog> {
   bool saving = false;
   String? error;
 
-  void update({String? orientation, int? rows, int? columns}) => setState(() {
+  void update(
+          {String? orientation, int? rows, int? columns, bool? uniformPages}) =>
+      setState(() {
         layout = PaymentLayout(
             orientation: orientation ?? layout.orientation,
             rows: rows ?? layout.rows,
-            columns: columns ?? layout.columns);
+            columns: columns ?? layout.columns,
+            uniformPages: uniformPages ?? layout.uniformPages);
         error = null;
       });
 
@@ -139,7 +142,17 @@ class _PaymentLayoutDialogState extends State<PaymentLayoutDialog> {
                   const SizedBox(height: 12),
                   Text(
                       '每页 ${layout.rows} 行 × ${layout.columns} 列，共 ${layout.perPage} 张。'),
-                  const Text('图片等比例缩放，尾页保持相同格子尺寸；此设置仅影响支付截图页。'),
+                  const Text('截图等比例缩放，尾页保持相同格子尺寸。'),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('统一所有页面为 A4'),
+                    subtitle:
+                        const Text('全部页面使用上方所选方向，原件等比例缩放居中，不裁剪。关闭时保留各类材料页面尺寸。'),
+                    value: layout.uniformPages,
+                    onChanged:
+                        saving ? null : (value) => update(uniformPages: value),
+                  ),
                   if (error != null)
                     Padding(
                         padding: const EdgeInsets.only(top: 8),

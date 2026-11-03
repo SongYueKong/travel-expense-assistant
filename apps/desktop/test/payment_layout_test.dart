@@ -61,8 +61,12 @@ void main() {
         closeTo(210 / 297, 0.001));
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
-    expect(
-        saved.toJson(), {'orientation': 'portrait', 'rows': 3, 'columns': 2});
+    expect(saved.toJson(), {
+      'orientation': 'portrait',
+      'rows': 3,
+      'columns': 2,
+      'uniformPages': false
+    });
     await open(tester, commit, initial: saved);
     expect(find.text('每页 3 行 × 2 列，共 6 张。'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -86,6 +90,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('每页 8 行 × 8 列，共 64 张。'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uniform pages preference survives direction changes and save',
+      (tester) async {
+    PaymentLayout? saved;
+    await open(tester, (value) async {
+      saved = value;
+    });
+    await tester.ensureVisible(find.byType(SwitchListTile));
+    await tester.tap(find.byType(SwitchListTile));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('A4 纵向'));
+    await tester.tap(find.text('A4 纵向'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存'));
+    await tester.pumpAndSettle();
+    expect(saved!.uniformPages, isTrue);
+    expect(saved!.orientation, 'portrait');
+    expect(
+        PaymentLayout.fromJson(
+            {'orientation': 'portrait', 'rows': 2, 'columns': 4}).uniformPages,
+        isFalse);
+    expect(
+        () => PaymentLayout.fromJson({
+              'orientation': 'portrait',
+              'rows': 2,
+              'columns': 4,
+              'uniformPages': 'yes'
+            }),
+        throwsFormatException);
   });
 
   testWidgets('failed save remains editable and successful retry closes dialog',

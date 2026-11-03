@@ -2,9 +2,9 @@
 
 一个面向个人差旅报账的 Windows 桌面工具，用于收集发票、核对支付截图、整理材料并导出报账 PDF。
 
-开发者：**松月空**。当前版本：**0.1.11**，首次公开预发布，欢迎使用测试数据试用并反馈问题。
+开发者：**松月空**。当前版本：**0.1.13**（预发布）。欢迎使用测试数据试用并反馈问题。
 
-[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.11) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
+[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.13) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
 
 ## 下载和运行
 
@@ -33,6 +33,8 @@
 
 ## PDF 排版
 
+汇总首页显示最终核算总额及人民币大写，包含已计入的伙食补助。导出完成后可点击提示中的“查看 PDF”，也可通过差旅界面的“查看导出 PDF”重新查看历史导出；文件交给 Windows 默认 PDF 软件打开。只有一份历史文件时直接打开，多份时先选择文件。优先使用差旅归档副本；文件丢失或默认应用不可用时提供提示。
+
 导出顺序为：**分类汇总表 → 发票及对应行程单/情况说明 → 出租车纸票粘贴页 → 支付截图**。材料使用对应编号，方便逐项核对。
 
 在差旅界面“设置／更多 → 支付截图排版”中设置：
@@ -40,6 +42,8 @@
 - A4 横向或纵向。
 - 每页行数和列数，各 1～8；默认横向 2 行 4 列。
 - 网格示意、恢复默认；图片等比例显示，尾页不足一页时保持相同格子尺寸。
+
+可选开启“统一所有页面为 A4”：汇总、发票、行程单、情况说明、纸票粘贴页和支付截图使用相同页面尺寸与上方所选方向。内容等比例缩放居中，不裁剪；原件不修改。默认关闭，保留各类材料的原有导出尺寸。
 
 排版偏好保存在本机，重启和新建差旅后沿用。导出 PDF 默认文件名包含当前差旅名称，保存时仍可修改。
 
@@ -116,7 +120,7 @@ cd apps/desktop
 ..\..\.tools\flutter\bin\flutter.bat test --no-pub
 ```
 
-当前已验证 186 项 Flutter 测试和 90 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
+当前已验证 194 项 Flutter 测试和 94 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-regression.ps1

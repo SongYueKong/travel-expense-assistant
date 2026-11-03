@@ -27,6 +27,7 @@ class SummaryTests(unittest.TestCase):
         self.assertIn('酒店住宿小计',pages[0].extract_text())
         self.assertIn('费用总计',pages[0].extract_text())
         self.assertIn('99.50',pages[0].extract_text())
+        self.assertIn('玖拾玖元伍角',pages[0].extract_text())
         self.assertIn('INVOICE',pages[1].extract_text())
 
     def test_inconsistent_totals_do_not_replace_output(self):
@@ -49,10 +50,23 @@ class SummaryTests(unittest.TestCase):
         pages=PdfReader(out).pages;self.assertEqual(len(pages),2)
         text=pages[0].extract_text();self.assertIn('伙食补助费小计',text);self.assertIn('399.50',text);self.assertIn('2027-01-02',text)
         self.assertNotIn('allowance-meal',text)
+        self.assertIn('叁佰玖拾玖元伍角',text)
 
     def test_meal_only_has_one_summary_page(self):
         self.with_meal(only=True);out=self.root/'meal.pdf';export_pdf(self.manifest,str(out))
         pages=PdfReader(out).pages;self.assertEqual(len(pages),1);self.assertIn('300.00',pages[0].extract_text())
+        self.assertIn('叁佰元整',pages[0].extract_text())
+
+    def test_uniform_landscape_summary_contains_total_on_first_page(self):
+        self.with_meal()
+        self.manifest['paymentLayout']={'orientation':'landscape','rows':2,'columns':4,'uniformPages':True}
+        out=self.root/'uniform.pdf';export_pdf(self.manifest,str(out))
+        pages=PdfReader(out).pages
+        self.assertIn('叁佰玖拾玖元伍角',pages[0].extract_text())
+        self.assertLess(pages[0].extract_text().index('人民币大写'),pages[0].extract_text().index('费用类别'))
+        for page in pages:
+            self.assertAlmostEqual(float(page.mediabox.width),297*72/25.4,places=3)
+            self.assertAlmostEqual(float(page.mediabox.height),210*72/25.4,places=3)
 
     def test_invalid_meal_cannot_replace_existing_output(self):
         self.with_meal();baseline=deepcopy(self.manifest)

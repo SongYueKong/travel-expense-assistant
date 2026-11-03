@@ -41,8 +41,8 @@ Future<void> main(List<String> args) async {
         jsonEncode((await store.loadPaymentLayout()).toJson()) ==
             jsonEncode(const PaymentLayout.defaults().toJson()),
         '升级默认保留横向2×4');
-    await store.savePaymentLayout(
-        PaymentLayout(orientation: 'portrait', rows: 3, columns: 2));
+    await store.savePaymentLayout(PaymentLayout(
+        orientation: 'portrait', rows: 3, columns: 2, uniformPages: true));
     check(
         (await store.customSelect('PRAGMA user_version').getSingle())
                 .read<int>('user_version') ==
@@ -76,7 +76,12 @@ Future<void> main(List<String> args) async {
     store = TaskStore(file);
     check(
         jsonEncode((await store.loadPaymentLayout()).toJson()) ==
-            jsonEncode({'orientation': 'portrait', 'rows': 3, 'columns': 2}),
+            jsonEncode({
+              'orientation': 'portrait',
+              'rows': 3,
+              'columns': 2,
+              'uniformPages': true
+            }),
         '退出重开及新建差旅均沿用支付截图排版');
     check((await store.loadDefaultMailbox())!.account == 'new@163.com',
         '退出重开后保留默认邮箱');
