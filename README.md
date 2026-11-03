@@ -2,9 +2,9 @@
 
 一个面向个人差旅报账的 Windows 桌面工具，用于收集发票、核对支付截图、整理材料并导出报账 PDF。
 
-开发者：**松月空**。当前版本：**0.1.13**（预发布）。欢迎使用测试数据试用并反馈问题。
+开发者：**松月空**。当前版本：**0.1.14**（预发布）。欢迎使用测试数据试用并反馈问题。
 
-[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.13) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
+[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.14) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
 
 ## 下载和运行
 
@@ -30,6 +30,14 @@
 - **差旅管理**：重命名、复制、删除；修改出差日期、补助和匹配设置。每条差旅保存为独立文件夹。
 
 自动识别和匹配供整理材料使用，导出前请核对金额、收款单位和材料归属。完整匹配后可直接导出，人工复核标记可按需使用。
+
+## 邮件与票据识别补充（0.1.14）
+
+支持普通电子发票中“经纪代理服务／代订机票”的城际交通分类；滴滴行程的时分跨行排版可正常解析。购买收据中帮助/页脚的普通“发票”字样不再单独触发发票下载待办。
+
+对符合发票投递特征且没有 PDF 附件的邮件，自动尝试已适配的 `https://t.17win.com/` 发票短链接，仅允许 HTTPS 和已核实的下载跳转域名，限 25 MB。成功后按普通 PDF 导入；失败保留提示，重新获取邮件会重试。其他平台、登录或验证码页面仍需人工下载。不会执行邮件中的脚本。
+
+已有任务先用“设置／更多 → 时间匹配／重算”重新识别材料；邮件旧提示需要用“从邮箱补充发票”重新获取，旧缓存会按新规则刷新。私人邮箱授权凭据不用于测试。
 
 ## PDF 排版
 
@@ -120,7 +128,7 @@ cd apps/desktop
 ..\..\.tools\flutter\bin\flutter.bat test --no-pub
 ```
 
-当前已验证 194 项 Flutter 测试和 94 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
+当前已验证 194 项 Flutter 测试和 99 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-regression.ps1

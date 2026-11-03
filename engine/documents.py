@@ -26,7 +26,7 @@ def parse_pdf(text: str, *, layout_text: str | None = None, source_name: str = '
     if '行程单' in compact and ('高德' in compact or 'AMAPITINERARY' in compact.upper()):
         total=re.search(r'合计([\d,]+\.\d{2})元',compact)
         count=re.search(r'共计?(\d+)(?:单|笔)行程',compact)
-        starts=list(re.finditer(r'(?m)^[ \t]*(\d+)\s+([\u3400-\u9fffA-Za-z0-9·()（） \t\r\n-]{1,80}?)\s+(20\d{2}-\d{2}-\d{2})\s+(\d{2}:\d{2})(?=\s|$)',normalized))
+        starts=list(re.finditer(r'(?m)^[ \t]*(\d+)\s+([\u3400-\u9fffA-Za-z0-9·()（） \t\r\n-]{1,80}?)\s+(20\d{2}-\d{2}-\d{2})\s+(\d{2}\s*:\s*\d{2})(?=\s|$)',normalized))
         trips=[]
         for index,header in enumerate(starts):
             segment=normalized[header.end():starts[index+1].start() if index+1<len(starts) else len(normalized)]
@@ -50,14 +50,14 @@ def parse_pdf(text: str, *, layout_text: str | None = None, source_name: str = '
         count=re.search(r'共(\d+)笔行程',compact)
         year=re.search(r'(20\d{2})-\d{2}-\d{2}',normalized)
         # 按“序号 + 车型 + 日期 + 时间”定位，车型允许跨行，避免车型白名单漏掉甄选等服务。
-        starts=list(re.finditer(r'(?m)^[ \t]*(\d+)\s+([\u3400-\u9fffA-Za-z·()（） \t\r\n-]{1,40}?)\s+(\d{2}-\d{2})\s+(\d{2}:\d{2})(?=\s|$)',normalized))
+        starts=list(re.finditer(r'(?m)^[ \t]*(\d+)\s+([\u3400-\u9fffA-Za-z·()（） \t\r\n-]{1,40}?)\s+(\d{2}-\d{2})\s+(\d{2}\s*:\s*\d{2})(?=\s|$)',normalized))
         trips=[]
         for index,header in enumerate(starts):
             segment=normalized[header.end():starts[index+1].start() if index+1<len(starts) else len(normalized)]
             amount=re.search(r'(\d+(?:\.\d+)?)\s+(\d+\.\d{2})\b',segment)
             if not amount: continue
             trips.append(dict(index=int(header[1]),date=f'{year[1]}-{header[3]}' if year else None,
-              time=header[4],vehicleType=re.sub(r'\s+','',header[2]),
+              time=re.sub(r'\s+','',header[4]),vehicleType=re.sub(r'\s+','',header[2]),
               cents=cents(amount[2]),source=header[0]+segment[:amount.end()]))
         result.update(totalCents=cents(total[1]) if total else None, expectedCount=int(count[1]) if count else None,
           trips=trips, complete=bool(count and total and year and int(count[1])>0 and
@@ -71,6 +71,8 @@ def parse_pdf(text: str, *, layout_text: str | None = None, source_name: str = '
     context = compact + re.sub(r'\s+', '', unicodedata.normalize('NFKC', source_name))
     if result['category'] is None and any(label in context for label in ['高德打车','高德地图']) and any(label in compact for label in ['客运服务','旅客运输服务']):
         result.update(category='local',platform='gaode')
+    if result['category'] is None and re.search(r'代订机票|航空旅客运输|航空运输服务',compact):
+        result.update(category='intercity',platform='air')
     identifiers=list(dict.fromkeys(re.findall(r'(?<!\d)\d{20}(?!\d)',normalized)))
     direct=re.search(r'发票号码\s*[:：]?\s*(\d{20})',normalized)
     result['number']=direct[1] if direct else (identifiers[0] if len(identifiers)==1 else None)

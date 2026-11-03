@@ -15,6 +15,7 @@ import ssl
 import tempfile
 import threading
 import uuid
+from invoice_links import invoice_links, download_invoice_pdf
 
 PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
            '163':('163 邮箱','imap.163.com',{'163.com'}),
@@ -26,6 +27,7 @@ PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
            'aliyun':('阿里个人邮箱','imap.aliyun.com',{'aliyun.com'})}
 NETEASE={'163','126','yeah'}
 MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+MAIL_PARSE_VERSION=3
 MAX_MESSAGE_BYTES=50*1024*1024
 MAX_ATTACHMENT_BYTES=25*1024*1024
 
@@ -123,6 +125,7 @@ class MailCache:
         row=self.db.execute('SELECT body FROM messages WHERE cache_key=?',(key,)).fetchone()
         if not row:return None
         result=json.loads(row[0])
+        if result.get('parserVersion')!=MAIL_PARSE_VERSION or any(p.get('retryableDownload') for p in result.get('pending',[])):return None
         for item in result['files']:
             path=Path(item['path'])
             if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=item['hash']:return None
@@ -141,11 +144,19 @@ class MailCache:
             staged.replace(path)
         return digest,str(path),duplicate
 
+def invoice_link_candidate(subject, body):
+    # 购买收据中的“发票”帮助链接不能单独证明这是差旅发票投递邮件。
+    if re.search('发票|行程单|开票|报销',subject):return True
+    formal=bool(re.search(r'发票号码\s*[:：]?\s*\d{20}',body))
+    if re.search('感谢.*购买|购买成功|订单确认|支付成功|收据',subject):return formal
+    return formal or bool(re.search(r'开票成功|发票已开具|请.{0,20}下载.{0,8}发票|下载.{0,8}电子发票',body))
+
+
 def extract_message(raw,source,cache):
     message=BytesParser(policy=policy.default).parsebytes(raw)
     origin={**source,'subject':str(message.get('Subject',''))[:500],
             'sender':str(message.get('From',''))[:500],'messageId':str(message.get('Message-ID',''))[:500]}
-    files=[];pending=[];has_links=False;has_invoice_words=bool(re.search('发票|行程单|报销',origin['subject']))
+    files=[];pending=[];has_links=False;body_texts=[];link_texts=[]
     if message.defects:pending.append({'reason':'邮件附件结构不完整，请检查原邮件并补充 PDF',**origin})
     for index,part in enumerate(message.walk()):
         if part.is_multipart():continue
@@ -166,10 +177,22 @@ def extract_message(raw,source,cache):
             try:text=data[:200000].decode(part.get_content_charset() or 'utf-8',errors='replace')
             except LookupError:text=data[:200000].decode('utf-8',errors='replace')
             has_links=has_links or bool(re.search(r'https?://',text))
-            has_invoice_words=has_invoice_words or bool(re.search('发票|行程单|报销',text))
-    if not files and has_links and has_invoice_words:
-        pending.append({'reason':'邮件含下载链接，请打开原邮件下载 PDF 后补充',**origin})
-    return {'files':files,'pending':pending,'subject':origin['subject']}
+            body_texts.append(re.sub(r'<[^>]+>', ' ', text))
+            link_texts.append(text)
+    if not files and has_links and invoice_link_candidate(origin['subject'],'\n'.join(body_texts)):
+        links=invoice_links('\n'.join(link_texts))
+        for index,url in enumerate(links):
+            try:
+                data=download_invoice_pdf(url,MAX_ATTACHMENT_BYTES)
+                digest,path,duplicate=cache.store_pdf(data)
+                files.append({'path':path,'hash':digest,'filename':f'邮件发票-{digest[:8]}.pdf',
+                              'partIndex':10000+index,'duplicate':duplicate,'downloadProvider':'17win',**origin})
+            except Exception:
+                pending.append({'reason':'17win发票链接自动下载失败，可能已过期、需要验证或网络异常；可重新获取邮件重试，或手工补充PDF',
+                                'retryableDownload':True,**origin})
+        if not links:
+            pending.append({'reason':'邮件含下载链接，当前平台尚不支持自动下载，请打开原邮件下载 PDF 后补充',**origin})
+    return {'files':files,'pending':pending,'subject':origin['subject'],'parserVersion':MAIL_PARSE_VERSION}
 
 def scan_mail(provider,account,authorization_code,start_date,end_date,folders,storage_root,
               cancel=None,progress=None):
