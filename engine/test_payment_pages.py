@@ -33,7 +33,7 @@ class PaymentLayoutTests(unittest.TestCase):
                             for i, call in enumerate(draws):
                                 image,x,y,w,h = call.args
                                 self.assertAlmostEqual(w/h, image.width/image.height)
-                                self.assertGreaterEqual(x, 6*mm-0.01)
+                                self.assertGreaterEqual(x, 20*mm-0.01)
                                 self.assertGreaterEqual(y, 6*mm)
                                 self.assertLessEqual(x+w, width-6*mm+0.01)
                                 self.assertLessEqual(y+h, height-(13 if draft else 6)*mm+0.01)
@@ -45,6 +45,29 @@ class PaymentLayoutTests(unittest.TestCase):
                             # 尾页首图与满页同一张图使用完全相同的格子。
                             first, last = draws[0].args, draws[-1].args
                             for a,b in zip(first[1:],last[1:]): self.assertAlmostEqual(a,b)
+
+    def test_grid_left_boundary_is_twenty_millimeters_in_both_page_orientations(self):
+        from reportlab.pdfbase.pdfmetrics import stringWidth
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);picture=root/'wide.png'
+            Image.new('RGB',(1200,200),'white').save(picture)
+            for orientation in ['portrait','landscape']:
+                for rows,columns in [(1,1),(2,4),(8,8)]:
+                    pictures=[{'path':str(picture),'number':f'{i+1:03d}'} for i in range(rows*columns+1)]
+                    for draft in [False,True]:
+                        with self.subTest(orientation=orientation,rows=rows,columns=columns,draft=draft),patch('payment_pages.canvas.Canvas') as factory:
+                            build_payment_pages(pictures,root/'out.pdf',draft,{'orientation':orientation,'rows':rows,'columns':columns})
+                            page=factory.return_value
+                            self.assertAlmostEqual(page.drawInlineImage.call_args_list[0].args[1]/mm,20,places=4)
+                            self.assertAlmostEqual(page.drawInlineImage.call_args_list[-1].args[1]/mm,20,places=4)
+                            fonts=[c for c in page.setFont.call_args_list if 'Bold' in c.args[0]]
+                            for label,font in zip(page.drawCentredString.call_args_list,fonts):
+                                # 普通编号必须完整位于20mm以右，不能侵入装订边。
+                                name,size=font.args
+                                center,_,text=label.args
+                                self.assertGreaterEqual(center-stringWidth(text,name,size)/2,20*mm-.01)
+                            if draft:
+                                self.assertAlmostEqual(page.drawString.call_args.args[0]/mm,20,places=4)
 
     def test_shared_payment_is_drawn_once_with_all_related_invoice_labels(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -95,7 +118,7 @@ class PaymentLayoutTests(unittest.TestCase):
                             image,x,y,w,h=call.args
                             self.assertEqual(image.size,sizes[index%3])
                             self.assertAlmostEqual(w/h,image.width/image.height)
-                            self.assertGreaterEqual(x,6*mm-0.01);self.assertGreaterEqual(y,6*mm)
+                            self.assertGreaterEqual(x,20*mm-0.01);self.assertGreaterEqual(y,6*mm)
                             self.assertLessEqual(x+w,291*mm+0.01);self.assertLessEqual(y+h,(204-(7 if draft else 0))*mm+0.01)
                             label=page.drawCentredString.call_args_list[index].args
                             self.assertGreaterEqual(label[1],6*mm)

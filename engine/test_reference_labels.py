@@ -38,5 +38,5 @@ class ReferenceLabelTests(unittest.TestCase):
             build_statement_image(image,out,'001 / STATEMENT')
             self.assert_large_reference(out)
             out=root/'taxi.pdf'
-            build_taxi_pages([{'number':'001'}],out)
+            build_taxi_pages([{'number':'001','invoiceCents':3500}],out)
             self.assert_large_reference(out)

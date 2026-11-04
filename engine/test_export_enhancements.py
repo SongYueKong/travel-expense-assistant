@@ -38,7 +38,7 @@ class UniformExportTests(unittest.TestCase):
             payment=root/'payment.png';Image.new('RGB',(300,650),'white').save(payment)
             originals={path:hashlib.sha256(path.read_bytes()).hexdigest() for path in [invoice,itinerary,payment]}
             manifest={'invoices':[{'number':'001','path':str(invoice),'itineraries':[str(itinerary)]},
-                                  {'number':'002','paperTaxi':True}],
+                                  {'number':'002','paperTaxi':True,'invoiceCents':3500}],
                       'pictures':[{'number':'001','path':str(payment)},{'number':'002','path':str(payment)}]}
             for orientation,size in [('landscape',landscape(A4)),('portrait',A4)]:
                 manifest['paymentLayout']={'orientation':orientation,'rows':2,'columns':4,'uniformPages':True}

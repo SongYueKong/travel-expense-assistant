@@ -83,6 +83,7 @@ Map<String, dynamic> buildExportManifest(
     }
     invoices.add({
       if (g['paperTaxi'] == true) 'paperTaxi': true,
+      if (g['paperTaxi'] == true) 'invoiceCents': check.invoiceCents,
       if (g['paperTaxi'] == true) 'date': g['document']?['expenseDate'],
       'number': invoiceNumber(i + 1),
       'path': g['path'],

@@ -110,6 +110,7 @@ void main() {
     expect(later['groups'].single['payments'].single['cents'], 3500);
     final manifest = buildTaskExportManifest(later);
     expect(manifest['invoices'].single['paperTaxi'], true);
+    expect(manifest['invoices'].single['invoiceCents'], 3500);
     expect(manifest['invoices'].single['number'],
         manifest['pictures'].single['number']);
     expect(manifest['grandTotals']['reimbursementCents'], 3500);

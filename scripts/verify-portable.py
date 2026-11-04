@@ -84,6 +84,25 @@ def main():
             assert abs(float(page.mediabox.height)-297*72/25.4)<0.01
         assert '001-07' in configured_pages[-1].extract_text()
         results['configurablePaymentLayout']=True
+        # 在包内真实导出纸票、金额和截图，校验三列、尾页及物理格子尺寸。
+        from payment_pages import payment_cell_size
+        taxi_output=temp/'taxi-cells.pdf'
+        taxi_layout={'orientation':'landscape','rows':1,'columns':3}
+        export_pdf({'invoices':[{'number':f'{i+1:03d}','paperTaxi':True,'invoiceCents':3500+125*i} for i in range(4)],
+                    'pictures':[{'number':f'{i+1:03d}','path':str(image)} for i in range(4)],
+                    'paymentLayout':taxi_layout},str(taxi_output))
+        taxi_pages=PdfReader(taxi_output).pages
+        assert len(taxi_pages)==4
+        assert '35.00' in taxi_pages[0].extract_text() and '38.75' in taxi_pages[1].extract_text()
+        cell_w,cell_h=payment_cell_size(taxi_layout)
+        for index,count in [(0,3),(1,1)]:
+            frames=[operands for operands,operator in taxi_pages[index].get_contents().operations if operator==b're']
+            assert len(frames)==count
+            assert abs(float(frames[0][0])-20*72/25.4)<.01
+            for frame in frames:
+                assert abs(float(frame[2])-cell_w)<.01 and abs(float(frame[3])-cell_h)<.01
+        results['taxiAmountAndSharedGrid']=True
+
         summary_output=temp/'summary-uniform.pdf'
         row={'number':'001','category':'intercity','description':'TEST',
              'invoiceCents':10000,'paymentCents':10000,'reimbursementCents':10000,'paymentNumbers':['001']}

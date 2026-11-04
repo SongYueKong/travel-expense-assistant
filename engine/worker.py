@@ -149,7 +149,10 @@ def export_pdf(manifest: dict, output: str) -> dict:
         taxis = [entry for entry in invoices if entry.get('paperTaxi')]
         if taxis:
             taxi_file = Path(temp)/'taxi.pdf'
-            build_taxi_pages(taxis, taxi_file)
+            # 兼容旧版客户端：票面金额也可从按编号对应的汇总明细取得。
+            amounts = {row['number']:row.get('invoiceCents') for row in manifest.get('summary',[])}
+            taxis = [{**entry,'invoiceCents':entry.get('invoiceCents',amounts.get(entry['number']))} for entry in taxis]
+            build_taxi_pages(taxis, taxi_file, manifest.get('paymentLayout'), manifest.get('draft',False))
             writer.append(str(taxi_file))
         if pictures:
             grid_file = Path(temp)/'payments.pdf'

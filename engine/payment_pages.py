@@ -20,25 +20,38 @@ def resolve_payment_layout(layout=None):
     return (landscape(A4) if orientation == 'landscape' else A4), rows, columns
 
 
+# 截图网格与纸票粘贴框共用物理尺寸，避免两处参数逐渐不一致。
+PAYMENT_LEFT_MARGIN = 20*mm
+PAYMENT_MARGIN = 6*mm
+PAYMENT_GAP = 2.5*mm
+PAYMENT_LABEL_HEIGHT = 7*mm
+
+
+def payment_cell_size(layout=None, draft=False):
+    (width,height),rows,columns = resolve_payment_layout(layout)
+    header = 7*mm if draft else 0
+    return ((width-PAYMENT_LEFT_MARGIN-PAYMENT_MARGIN-(columns-1)*PAYMENT_GAP)/columns,
+            (height-2*PAYMENT_MARGIN-header-(rows-1)*PAYMENT_GAP)/rows)
+
+
 def build_payment_pages(pictures, destination, draft=False, layout=None):
     (width, height), rows, columns = resolve_payment_layout(layout)
     page = canvas.Canvas(str(destination), pagesize=(width, height))
-    # 预留打印安全边距和编号高度，不裁剪截图内容。
-    margin, gap, label_height = 6*mm, 2.5*mm, 7*mm
+    # 左侧预留20mm排版边距，其余方向保留打印安全边距；不裁剪截图。
+    left_margin, margin, gap, label_height = PAYMENT_LEFT_MARGIN, PAYMENT_MARGIN, PAYMENT_GAP, PAYMENT_LABEL_HEIGHT
+    cell_w, cell_h = payment_cell_size(layout, draft)
     header = 7*mm if draft else 0
     per_page = rows * columns
     for offset in range(0, len(pictures), per_page):
         if offset:
             page.showPage()
         batch = pictures[offset:offset+per_page]
-        cell_w = (width-2*margin-(columns-1)*gap)/columns
-        cell_h = (height-2*margin-header-(rows-1)*gap)/rows
         if draft:
             page.setFont(report_fonts().latin, 9)
-            page.drawString(margin, height-margin-4*mm, 'PREVIEW - REVIEW REQUIRED')
+            page.drawString(left_margin, height-margin-4*mm, 'PREVIEW - REVIEW REQUIRED')
         for index, picture in enumerate(batch):
             row, column = divmod(index, columns)
-            left = margin+column*(cell_w+gap)
+            left = left_margin+column*(cell_w+gap)
             bottom = height-margin-header-(row+1)*cell_h-row*gap
             with Image.open(picture['path']) as original:
                 image = ImageOps.exif_transpose(original).convert('RGB')
