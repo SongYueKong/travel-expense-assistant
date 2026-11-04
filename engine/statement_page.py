@@ -18,7 +18,7 @@ def build_statement_image(path, output, label):
     scale = min((width-2*margin)/image.width, (height-2*margin)/image.height)
     w, h = image.width*scale, image.height*scale
     c = canvas.Canvas(str(output), pagesize=(width, height))
-    c.setFont(report_fonts().latin, 9)
+    c.setFont(report_fonts().latin_bold, 14)
     c.drawString(5*mm, height-7*mm, label)
     c.drawImage(ImageReader(image), (width-w)/2, (height-h)/2, width=w, height=h)
     c.save()

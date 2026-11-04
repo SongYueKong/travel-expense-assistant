@@ -66,9 +66,19 @@ def parse_pdf(text: str, *, layout_text: str | None = None, source_name: str = '
         return result
     if '发票' not in compact: return result
     result['type']='invoice'
-    result['category']='intercity' if '铁路电子客票' in compact else ('hotel' if '住宿费' in compact else ('local' if '滴滴' in compact else None))
-    result['platform']='didi' if '滴滴' in compact else ('rail' if '铁路电子客票' in compact else None)
-    context = compact + re.sub(r'\s+', '', unicodedata.normalize('NFKC', source_name))
+    source_compact = re.sub(r'\s+', '', unicodedata.normalize('NFKC', source_name))
+    # 部分滴滴发票仅有英文 logo；文件名只在票面有相关服务项目时辅助分类。
+    platform_service_fee = ('信息技术服务费' in compact or
+                            bool(re.search(r'信息技[^\r\n]{0,100}\r?\n\s*术服务费', normalized)))
+    service_item = platform_service_fee or bool(re.search(r'客运服务|旅客运输服务', compact))
+    didi_brand = ('滴滴' in compact or
+                  bool(re.search(r'(?<![A-Za-z0-9])didi(?![A-Za-z0-9])', normalized, re.I)) or
+                  ('滴滴' in source_compact and service_item))
+    result['category']='intercity' if '铁路电子客票' in compact else ('hotel' if '住宿费' in compact else ('local' if didi_brand else None))
+    result['platform']='didi' if didi_brand and result['category']=='local' else ('rail' if '铁路电子客票' in compact else None)
+    if result['platform']=='didi' and platform_service_fee:
+        result['expenseKind']='platformServiceFee'
+    context = compact + source_compact
     if result['category'] is None and any(label in context for label in ['高德打车','高德地图']) and any(label in compact for label in ['客运服务','旅客运输服务']):
         result.update(category='local',platform='gaode')
     if result['category'] is None and re.search(r'代订机票|航空旅客运输|航空运输服务',compact):

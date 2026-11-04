@@ -38,6 +38,40 @@ def main():
         assert len(PdfReader(output).pages)==2
         preview=preview_pdf(str(output),str(temp/'previews'));assert Path(preview['path']).is_file()
         results['pdfExportAndPreview']=True
+        labels=[]
+        def reference_text(text, cm, tm, font, size):
+            if '001' in text: labels.append((size,str(font.get('/BaseFont',''))))
+        PdfReader(output).pages[0].extract_text(visitor_text=reference_text)
+        assert labels and all(abs(size-14)<.01 and 'Bold' in font for size,font in labels)
+        results['largeReferenceLabels']=True
+        # 使用发行包自己的标准库和邮件模块，不连接邮箱、不读取凭据。
+        from io import BytesIO
+        from email.message import EmailMessage
+        from zipfile import ZipFile
+        from mail_service import MailCache, extract_message
+        from typography import report_fonts
+        service=temp/'service.pdf'
+        c=canvas.Canvas(str(service));c.setFont(report_fonts().chinese,14)
+        c.drawString(30,700,'didi 电子发票 *生产生活服务*信息技术服务费 价税合计 ¥1.00');c.save()
+        parsed=inspect_file(str(service),str(temp/'service-materials'))['document']
+        assert parsed['category']=='local' and parsed['platform']=='didi' and parsed['totalCents']==100
+        assert parsed['expenseKind']=='platformServiceFee'
+        results['didiEnglishServiceFee']=True
+        zipped=BytesIO()
+        with ZipFile(zipped,'w') as archive: archive.writestr('OFD.xml',b'<ofd/>')
+        pdf_zip=BytesIO()
+        with ZipFile(pdf_zip,'w') as archive: archive.writestr('invoice.pdf',pdf.read_bytes())
+        message=EmailMessage();message['Subject']='TEST INVOICE';message.set_content('Synthetic package test')
+        message.add_attachment(zipped.getvalue(),maintype='application',subtype='ofd',filename='invoice.ofd')
+        message.add_attachment(pdf_zip.getvalue(),maintype='application',subtype='zip',filename='invoice.zip')
+        mail_cache=MailCache(temp/'mail-cache')
+        try:
+            mail=extract_message(message.as_bytes(),{},mail_cache)
+            assert len(mail['files'])==1 and not mail['pending']
+            assert mail['files'][0]['archiveFilename']=='invoice.zip'
+        finally: mail_cache.db.close()
+        results['zipMailAndAlternateFormatNotes']=True
+
         # 验证发布包内的最新排版参数，避免只检查默认横向网格。
         configured=temp/'portrait-grid.pdf'
         export_pdf({'invoices':[{'number':'001','path':str(pdf)}],

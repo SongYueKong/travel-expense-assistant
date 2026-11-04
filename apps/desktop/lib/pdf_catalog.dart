@@ -1,3 +1,4 @@
+import 'invoice_bundle.dart';
 import 'import_service.dart';
 import 'package:travel_core/travel_core.dart';
 
@@ -36,7 +37,9 @@ class PdfCatalogEntry {
             'subject',
             'sender',
             'receivedAt',
-            'filename'
+            'filename',
+            'archiveFilename',
+            'archiveMember'
           ])
             if (m[k] != null) k: m[k],
         });
@@ -125,6 +128,27 @@ List<PdfCatalogEntry> buildPdfCatalog(PdfMaterial task) {
     add(g,
         kind: 'invoice',
         use: '$number 发票（${g['confirmed'] == true ? '已确认' : '待核对'}）');
+    if (isInvoiceBundle(g)) {
+      final labels = bundleInvoiceNumbers(g, i);
+      final members = invoiceMembers(g);
+      for (var n = 0; n < members.length; n++) {
+        add(members[n], kind: 'invoice', use: '${labels[n]} 共同支付发票');
+        for (final file in _records(members[n]['itineraryMaterials'])) {
+          add(file);
+        }
+        for (final path in members[n]['itineraries'] as List? ?? []) {
+          add(
+              paths[materialPathKey(path)]?.material ??
+                  {
+                    'path': path,
+                    'name': '${members[n]['name']} · 配套行程单',
+                    'document': {'type': 'itinerary'}
+                  },
+              kind: 'itinerary',
+              use: '${labels[n]} 配套行程单');
+        }
+      }
+    }
     for (final m in _records(g['itineraryMaterials'])) {
       add(m);
     }

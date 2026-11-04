@@ -141,7 +141,7 @@ def export_pdf(manifest: dict, output: str) -> dict:
                     expanded.merge_transformed_page(page,Transformation().translate(-left,-bottom))
                     label_file = Path(temp)/'label.pdf'
                     c = canvas.Canvas(str(label_file), pagesize=(width, height+10*mm))
-                    c.setFont(report_fonts().latin, 9)
+                    c.setFont(report_fonts().latin_bold, 14)
                     label=entry['number'] + (' / STATEMENT' if file in entry.get('supportingDocuments',[]) else '') + (' / PREVIEW - REVIEW REQUIRED' if manifest.get('draft') else '')
                     c.drawString(5*mm, height+3*mm, label)
                     c.save()

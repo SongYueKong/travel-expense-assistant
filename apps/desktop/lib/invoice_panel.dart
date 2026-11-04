@@ -1,3 +1,4 @@
+import 'invoice_bundle.dart';
 import 'package:flutter/material.dart';
 import 'package:travel_core/travel_core.dart';
 import 'association_service.dart';
@@ -13,49 +14,64 @@ class InvoicePanel extends StatelessWidget {
       child: SelectableText(
           '$label：${value == null || value.toString().isEmpty ? '未识别' : value}'));
   @override
-  Widget build(BuildContext context) => invoice['paperTaxi'] == true
+  Widget build(BuildContext context) => isInvoiceBundle(invoice)
       ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('出租车纸票', style: Theme.of(context).textTheme.titleMedium),
-          field('票面金额', '¥${formatMoney(invoice['invoiceCents'])}'),
-          field('日期', invoice['document']?['expenseDate'] ?? '未填写（按金额匹配）'),
-          const Text('纸质发票另行粘贴；导出时生成对应序号的空白框。'),
+          Text(
+              '共同支付组：${invoiceMembers(invoice).length} 张发票 · 合计 ¥${formatMoney(invoice['invoiceCents'])}'),
+          for (final member in invoiceMembers(invoice)) ...[
+            const SizedBox(height: 8),
+            Text(member['name'] ?? '发票'),
+            InvoicePanel(invoice: member, loadPreview: loadPreview),
+          ],
         ])
-      : PdfPreviewPanel(
-          material: invoice,
-          loadPreview: loadPreview,
-          title: '发票',
-          showName: false,
-          textTitle: '发票原文（购销方、项目等）',
-          information: (d) {
-            final amount = d['totalCents'] as int?;
-            return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('发票信息', style: Theme.of(context).textTheme.titleMedium),
-                  field(
-                      '费用类别',
-                      const {
-                        'intercity': '城际交通',
-                        'hotel': '酒店住宿',
-                        'local': '市内交通'
-                      }[invoice['category']]),
-                  field('发票号码', d['number']),
-                  field('核对发票金额', '¥${formatMoney(invoice['invoiceCents'])}'),
-                  if (amount != null && amount != invoice['invoiceCents'])
-                    field('票面识别金额', '¥${formatMoney(amount)}（与当前核对金额不同，请核实）'),
-                  field('开票日期', d['issueDate']),
-                  field('出行／消费日期', d['expenseDate']),
-                  if (d['platform'] != null)
-                    field(
-                        '开票平台',
-                        const {
-                              'rail': '铁路',
-                              'didi': '滴滴',
-                              'gaode': '高德打车'
-                            }[d['platform']] ??
-                            d['platform']),
-                  const Text('日期等识别字段供核对，以原件为准。',
-                      style: TextStyle(color: Colors.blueGrey)),
-                ]);
-          });
+      : invoice['paperTaxi'] == true
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('出租车纸票', style: Theme.of(context).textTheme.titleMedium),
+              field('票面金额', '¥${formatMoney(invoice['invoiceCents'])}'),
+              field('日期', invoice['document']?['expenseDate'] ?? '未填写（按金额匹配）'),
+              const Text('纸质发票另行粘贴；导出时生成对应序号的空白框。'),
+            ])
+          : PdfPreviewPanel(
+              material: invoice,
+              loadPreview: loadPreview,
+              title: '发票',
+              showName: false,
+              textTitle: '发票原文（购销方、项目等）',
+              information: (d) {
+                final amount = d['totalCents'] as int?;
+                return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('发票信息',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      field(
+                          '费用类别',
+                          const {
+                            'intercity': '城际交通',
+                            'hotel': '酒店住宿',
+                            'local': '市内交通'
+                          }[invoice['category']]),
+                      if (d['expenseKind'] == 'platformServiceFee')
+                        field('费用项目', '平台信息技术服务费'),
+                      field('发票号码', d['number']),
+                      field(
+                          '核对发票金额', '¥${formatMoney(invoice['invoiceCents'])}'),
+                      if (amount != null && amount != invoice['invoiceCents'])
+                        field(
+                            '票面识别金额', '¥${formatMoney(amount)}（与当前核对金额不同，请核实）'),
+                      field('开票日期', d['issueDate']),
+                      field('出行／消费日期', d['expenseDate']),
+                      if (d['platform'] != null)
+                        field(
+                            '开票平台',
+                            const {
+                                  'rail': '铁路',
+                                  'didi': '滴滴',
+                                  'gaode': '高德打车'
+                                }[d['platform']] ??
+                                d['platform']),
+                      const Text('日期等识别字段供核对，以原件为准。',
+                          style: TextStyle(color: Colors.blueGrey)),
+                    ]);
+              });
 }

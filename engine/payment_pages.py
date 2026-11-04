@@ -3,6 +3,7 @@ from PIL import Image, ImageOps
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from typography import report_fonts
 
 
@@ -23,7 +24,7 @@ def build_payment_pages(pictures, destination, draft=False, layout=None):
     (width, height), rows, columns = resolve_payment_layout(layout)
     page = canvas.Canvas(str(destination), pagesize=(width, height))
     # 预留打印安全边距和编号高度，不裁剪截图内容。
-    margin, gap, label_height = 6*mm, 2.5*mm, 5*mm
+    margin, gap, label_height = 6*mm, 2.5*mm, 7*mm
     header = 7*mm if draft else 0
     per_page = rows * columns
     for offset in range(0, len(pictures), per_page):
@@ -46,6 +47,13 @@ def build_payment_pages(pictures, destination, draft=False, layout=None):
                 x = left+(cell_w-w)/2
                 y = bottom+label_height+(cell_h-label_height-h)/2
                 page.drawInlineImage(image, x, y, w, h)
-            page.setFont(report_fonts().latin, 9)
-            page.drawCentredString(left+cell_w/2, y-3.5*mm, picture['number'])
+            label = picture['number']
+            related = picture.get('relatedInvoiceNumbers', [])
+            if related:
+                references = ', '.join(related) if len(related) <= 2 else related[0]+'..'+related[-1]
+                label += ' -> '+references
+            font = report_fonts().latin_bold
+            font_size = min(14, 14*cell_w/max(1, stringWidth(label, font, 14)))
+            page.setFont(font, font_size)
+            page.drawCentredString(left+cell_w/2, y-5*mm, label)
     page.save()

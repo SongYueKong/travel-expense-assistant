@@ -66,6 +66,21 @@ Future<void> openLibrary(WidgetTester tester, Map<String, dynamic> task,
 }
 
 void main() {
+  testWidgets('ZIP origin is visible next to the original email source',
+      (tester) async {
+    final task = libraryTask();
+    task['pdfMaterials'][0]['pdfSources'][0].addAll(
+        {'archiveFilename': 'rail.zip', 'archiveMember': 'folder/rail.pdf'});
+    await openLibrary(tester, task);
+    await tester.tap(find.byKey(const ValueKey('pdf-file-a')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('邮件来源（1 处）'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('压缩包：rail.zip'), findsOneWidget);
+    expect(find.textContaining('包内文件：folder/rail.pdf'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'all PDFs include unassociated files and preserve source data while browsing',
       (tester) async {

@@ -3,6 +3,7 @@ import 'import_service.dart';
 import 'payment_identity.dart';
 import 'matching_helpers.dart';
 import 'hotel_check.dart';
+import 'invoice_bundle.dart';
 
 bool groupDiscountExplains(Map<String, dynamic> group) {
   final payments =
@@ -40,6 +41,45 @@ List<GroupStatus> assessGroups(
   for (var i = 0; i < groups.length; i++) {
     final g = groups[i], status = result[i];
     final payments = g['payments'] as List? ?? [];
+    if (isInvoiceBundle(g)) {
+      final members = invoiceMembers(g);
+      final identities = <String>{}, numbers = <String>{};
+      var valid = members.length >= 2 && g['category'] == 'intercity';
+      var sum = 0;
+      for (final m in members) {
+        final amount = m['invoiceCents'], path = m['path'];
+        final number = m['document']?['number'];
+        final key = m['hash'] ?? path;
+        if (amount is! int ||
+            amount < 0 ||
+            path is! String ||
+            path.isEmpty ||
+            m['category'] != 'intercity' ||
+            isInvoiceBundle(m) ||
+            key is! String ||
+            !identities.add(key) ||
+            (number is String && number.isNotEmpty && !numbers.add(number))) {
+          valid = false;
+        }
+        if (amount is int) sum += amount;
+      }
+      if (!valid || sum != g['invoiceCents']) {
+        status.problems.add('共同支付组的发票明细、金额合计或类别无效');
+      }
+      if (payments.length != 1) status.problems.add('共同支付组需要且只能对应一笔支付');
+      for (var j = 0; j < groups.length; j++) {
+        if (j == i) continue;
+        final conflict = invoiceMembers(groups[j]).any((m) =>
+            identities.contains(m['hash'] ?? m['path']) ||
+            (m['document']?['number'] is String &&
+                numbers.contains(m['document']['number'])));
+        if (conflict) {
+          status.problems.add('发票被其他费用组重复使用');
+          result[j].problems.add('发票被其他费用组重复使用');
+        }
+      }
+    }
+
     final invoicePath = g['path'] as String?;
     if ((invoicePath == null || invoicePath.isEmpty) &&
         g['paperTaxi'] != true) {

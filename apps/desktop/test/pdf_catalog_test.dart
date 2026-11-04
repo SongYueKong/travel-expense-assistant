@@ -42,6 +42,38 @@ class CatalogProcessor implements ProcessingClient {
 
 void main() {
   test(
+      'multiple members of a ZIP preserve distinct origins after catalog reopen',
+      () {
+    final a = source('same', '1')
+      ..addAll({
+        'partIndex': '2:zip:0',
+        'archiveFilename': 'tickets.zip',
+        'archiveMember': 'folder/a.pdf'
+      });
+    final b = source('same', '1')
+      ..addAll({
+        'partIndex': '2:zip:1',
+        'archiveFilename': 'tickets.zip',
+        'archiveMember': 'folder/b.pdf'
+      });
+    final task = {
+      'mailSources': [a, b]
+    };
+    final catalog = buildPdfCatalog(task);
+    expect(catalog.length, 1);
+    expect(catalog.single.sources.length, 2);
+    expect(catalog.single.sources.map((s) => s['archiveMember']).toSet(),
+        {'folder/a.pdf', 'folder/b.pdf'});
+    final reopened = buildPdfCatalog(
+        {'pdfMaterials': jsonDecode(jsonEncode(pdfCatalogMaterials(task)))});
+    expect(reopened.single.sources.length, 2);
+    expect(
+        reopened.single.sources
+            .every((s) => s['archiveFilename'] == 'tickets.zip'),
+        isTrue);
+  });
+
+  test(
       'legacy task includes invoices, itinerary paths and unrelated PDFs without mutation',
       () {
     final task = fixture();

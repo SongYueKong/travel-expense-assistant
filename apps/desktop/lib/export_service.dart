@@ -1,7 +1,9 @@
+import 'invoice_bundle.dart';
 import 'package:travel_core/travel_core.dart';
 import 'reconciliation_service.dart';
 import 'meal_allowance.dart';
 import 'hotel_check.dart';
+import 'trip_dates.dart';
 
 String taskExportFilename(String name) {
   var label = name
@@ -19,6 +21,7 @@ Map<String, dynamic> buildTaskExportManifest(Map<String, dynamic> task) => {
           task['toleranceCents'] as int,
           meal: MealAllowance.fromTask(task)),
       'taskName': task['name'],
+      ...?TripPeriod.fromTask(task)?.toJson(),
     };
 
 Map<String, dynamic> buildExportManifest(
@@ -38,6 +41,45 @@ Map<String, dynamic> buildExportManifest(
     if (!check.included) {
       throw StateError(
           '${invoiceNumber(i + 1)} 尚未匹配完整：${checks[i].problems.join('；')}');
+    }
+    if (isInvoiceBundle(g)) {
+      final members = invoiceMembers(g), labels = bundleInvoiceNumbers(g, i);
+      final weights = [for (final m in members) m['invoiceCents'] as int];
+      final paid =
+          allocateBundleAmount(check.allocatedNetPaymentCents, weights);
+      final claimed = allocateBundleAmount(check.reimbursementCents!, weights);
+      final p = Map<String, dynamic>.from(payments.single);
+      if (!usedPayments.add(p['hash'] ?? p['path'])) {
+        throw StateError('同一支付证据重复分配');
+      }
+      final paymentLabel = invoiceNumber(i + 1);
+      pictures.add({
+        'number': paymentLabel,
+        'path': p['path'],
+        'relatedInvoiceNumbers': labels
+      });
+      for (var n = 0; n < members.length; n++) {
+        final m = members[n];
+        invoices.add({
+          'number': labels[n],
+          'path': m['path'],
+          'itineraries': m['itineraries'] ?? [],
+          'supportingDocuments': []
+        });
+        summary.add({
+          'number': labels[n],
+          'category': g['category'],
+          'invoiceCents': weights[n],
+          'paymentCents': paid[n],
+          'reimbursementCents': claimed[n],
+          'differenceCents': weights[n] - paid[n],
+          'withinTolerance': check.withinTolerance,
+          'reviewed': g['confirmed'] == true,
+          'description': '共同支付组 ${invoiceNumber(i + 1)} · ${m['name']}',
+          'paymentNumbers': [paymentLabel]
+        });
+      }
+      continue;
     }
     invoices.add({
       if (g['paperTaxi'] == true) 'paperTaxi': true,

@@ -6,7 +6,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from typography import report_fonts, mixed_text
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from uppercase_money import uppercase_money
 
 CATEGORIES={'intercity':'城际交通','hotel':'酒店住宿','local':'市内交通','meal':'伙食补助费'}
@@ -49,51 +49,92 @@ def validate_summary(manifest):
         if manifest.get('grandTotals',{}).get(field)!=sum(r[field] for r in rows): raise ValueError('总计与明细不符')
     return grouped
 
+def summary_period(manifest):
+    start, end = manifest.get('tripStartDate'), manifest.get('tripEndDate')
+    if start is None and end is None:
+        meal = next((row for row in manifest['summary'] if row.get('kind') == 'allowance'), None)
+        if meal:
+            start, end = meal['tripStartDate'], meal['tripEndDate']
+        else:
+            return None
+    try:
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+    except (ValueError, TypeError):
+        raise ValueError('出差日期无效，请检查差旅设置') from None
+    if first > last or first.year < 2000 or last.year > 2100:
+        raise ValueError('出差日期无效，请检查差旅设置')
+    return start, end, (last-first).days+1
+
+
+def claim_rows(manifest, grouped):
+    period = summary_period(manifest)
+    totals = {row['category']: row['reimbursementCents'] for row in manifest['categoryTotals']}
+    rows = [
+        ['城市间交通费', str(len(grouped.get('intercity', []))), '—', '—', totals.get('intercity', 0)],
+        ['市内交通费', '—', '—', '—', totals.get('local', 0)],
+        ['住宿费', '—', '1' if grouped.get('hotel') else '—',
+         (str(period[2]) if period else '未设置') if grouped.get('hotel') else '—', totals.get('hotel', 0)],
+    ]
+    if grouped.get('meal'):
+        rows.append(['伙食补助费', '—', '—', str(grouped['meal'][0]['days']), totals['meal']])
+    for category in grouped:
+        if category not in CATEGORIES:
+            rows.append(['其他费用', '—', '—', '—', totals[category]])
+    return rows
+
+
 def build_summary_pdf(manifest, destination, page_size=A4):
-    grouped=validate_summary(manifest)
-    fonts=report_fonts()
-    font=fonts.latin
-    body=ParagraphStyle('SummaryBody',fontName=font,fontSize=9.5,leading=15,textColor=colors.black,wordWrap='CJK')
-    title=ParagraphStyle('SummaryTitle',parent=body,fontSize=20,leading=28,spaceAfter=10)
-    note=ParagraphStyle('SummaryNote',parent=body,fontSize=9,leading=15,spaceAfter=5)
-    cell=ParagraphStyle('SummaryCell',parent=body,fontSize=9,leading=13)
-    def p(value,bold=False): return Paragraph(mixed_text(value,bold),cell)
-    story=[Paragraph(mixed_text('差旅报账费用汇总',True),title)]
-    if manifest.get('taskName'): story.append(Paragraph(mixed_text(manifest['taskName']),body));story.append(Spacer(1,5*mm))
-    story.append(Paragraph(mixed_text(f"发票 {len(manifest['invoices'])} 张　支付截图 {len(manifest.get('pictures',[]))} 张　金额单位：元　匹配容差：{money(manifest.get('toleranceCents',100))} 元"),note))
+    grouped = validate_summary(manifest)
+    period = summary_period(manifest)
+    fonts = report_fonts()
+    width = page_size[0]-30*mm
+    row_padding = 10 if page_size[0] > page_size[1] else 15
+    ink, accent = colors.HexColor('#183B35'), colors.HexColor('#176B60')
+    body = ParagraphStyle('ClaimBody', fontName=fonts.latin, fontSize=11, leading=18, wordWrap='CJK')
+    title = ParagraphStyle('ClaimTitle', parent=body, fontSize=22, leading=32, spaceAfter=12, textColor=ink)
+    note = ParagraphStyle('ClaimNote', parent=body, fontSize=10, leading=17, textColor=colors.HexColor('#53635F'))
+    cell = ParagraphStyle('ClaimCell', parent=body, fontSize=11, leading=18)
+    header = ParagraphStyle('ClaimHeader', parent=cell, textColor=colors.white, fontSize=10)
+    amount = ParagraphStyle('ClaimAmount', parent=cell, alignment=2, fontSize=12)
+    capital = ParagraphStyle('ClaimCapital', parent=body, fontSize=16, leading=26, textColor=ink)
+    numeric = ParagraphStyle('ClaimNumeric', parent=body, fontSize=14, leading=23, textColor=ink)
+    def p(value, bold=False, style=cell):
+        return Paragraph(mixed_text(str(value), bold), style)
+    story = [p('差旅报账费用汇总', True, title)]
+    if manifest.get('taskName'):
+        story.append(p(manifest['taskName'], style=body))
+    if period:
+        story.append(p(f'出差日期：{period[0]} 至 {period[1]}　共 {period[2]} 天', style=note))
+    story.append(Spacer(1, 8*mm))
     if manifest.get('draft'):
-        story.append(Paragraph(mixed_text('待复核预览：以下金额依据当前匹配建议汇总，尚未完成人工确认。'),note))
-    story.append(Paragraph(mixed_text(f"核算金额合计：{money(manifest['grandTotals']['reimbursementCents'])} 元", True),body))
-    story.append(Paragraph(mixed_text('人民币大写：'+uppercase_money(manifest['grandTotals']['reimbursementCents']),True),body))
-    story.append(Spacer(1,4*mm))
-    data=[[p(v,True) for v in ['费用类别','发票序号','费用说明','发票金额','支付净额','核算金额','对应支付编号']]]
-    subtotal_indices=[]
-    totals={r['category']:r for r in manifest['categoryTotals']}
-    order=[key for key in CATEGORIES if key in grouped]+[key for key in grouped if key not in CATEGORIES]
-    for key in order:
-        category=CATEGORIES.get(key,'其他费用')
-        for row in grouped[key]:
-            allowance=row.get('kind')=='allowance'
-            data.append([p(category),p('—' if allowance else row['number']),p(row.get('description') or category),
-                         *[('—' if allowance and f!='reimbursementCents' else money(row[f])) for f in MONEY_FIELDS],p('—' if allowance else '、'.join(row.get('paymentNumbers',[])))])
-        subtotal_indices.append(len(data))
-        data.append([p(category+'小计',True),'','',*[('—' if key=='meal' and f!='reimbursementCents' else money(totals[key][f])) for f in MONEY_FIELDS],''])
-    grand_index=len(data)
-    data.append([p('费用总计',True),'','',*[money(manifest['grandTotals'][f]) for f in MONEY_FIELDS],''])
-    table=Table(data,colWidths=[value*(page_size[0]-30*mm)/180 for value in [22,18,36,23,23,23,35]],repeatRows=1,hAlign='LEFT')
-    commands=[('FONTNAME',(0,0),(-1,-1),font),('FONTSIZE',(0,0),(-1,-1),9.5),
-      ('LEADING',(0,0),(-1,-1),14),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-      ('GRID',(0,0),(-1,-1),0.4,colors.HexColor('#D9D9D9')),
-      ('BACKGROUND',(0,0),(-1,0),colors.HexColor('#E8EEF3')),
-      ('TOPPADDING',(0,0),(-1,-1),9),('BOTTOMPADDING',(0,0),(-1,-1),9),
-      ('LEFTPADDING',(0,0),(-1,-1),5),('RIGHTPADDING',(0,0),(-1,-1),5),
-      ('ALIGN',(3,1),(5,-1),'RIGHT')]
-    for i in subtotal_indices:
-        commands.extend([('SPAN',(0,i),(2,i)),('BACKGROUND',(0,i),(-1,i),colors.HexColor('#F5F6F8')),('FONTNAME',(3,i),(5,i),fonts.latin_bold)])
-    commands.extend([('SPAN',(0,grand_index),(2,grand_index)),('BACKGROUND',(0,grand_index),(-1,grand_index),colors.HexColor('#E8EEF3')),('FONTNAME',(3,grand_index),(5,grand_index),fonts.latin_bold),('FONTSIZE',(3,grand_index),(5,grand_index),11)])
-    table.setStyle(TableStyle(commands));story.append(table);story.append(Spacer(1,7*mm))
-    for row in grouped.get('meal',[]):
-        story.append(Paragraph(mixed_text(f"伙食补助出差日期：{row['tripStartDate']} 至 {row['tripEndDate']}，共 {row['days']} 天，每日 {money(row['dailyRateCents'])} 元。"),note))
-    story.append(Paragraph(mixed_text('发票序号与后续票据页一致。市内交通一票对应多笔支付时，使用主序号及支付子序号，行程单紧跟对应发票。'),note))
-    SimpleDocTemplate(str(destination),pagesize=page_size,leftMargin=15*mm,rightMargin=15*mm,
-                      topMargin=18*mm,bottomMargin=18*mm).build(story)
+        story.append(p('待复核预览', True, note))
+    data = [[p(value, True, header) for value in ['费用类别', '单据数量', '人数', '天数', '申报金额（元）']]]
+    for row in claim_rows(manifest, grouped):
+        data.append([p(row[0], True), *[p(value) for value in row[1:4]], p(money(row[4]), True, amount)])
+    table = Table(data, colWidths=[width*value/180 for value in [50,30,25,25,50]], repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), accent),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F3F7F6')]),
+        ('LINEBELOW', (0,0), (-1,0), 1, accent),
+        ('LINEBELOW', (0,1), (-1,-1), .45, colors.HexColor('#D8E3DF')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), row_padding), ('BOTTOMPADDING', (0,0), (-1,-1), row_padding),
+        ('LEFTPADDING', (0,0), (-1,-1), 10), ('RIGHTPADDING', (0,0), (-1,-1), 10),
+    ]))
+    story.extend([table, Spacer(1, 10*mm)])
+    total = manifest['grandTotals']['reimbursementCents']
+    card = Table([
+        [p('申报金额合计', True, note)],
+        [p('人民币大写：'+uppercase_money(total), True, capital)],
+        [p('人民币小写：¥ '+money(total), style=numeric)],
+    ], colWidths=[width], hAlign='LEFT')
+    card.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#EAF3EF')),
+        ('BOX', (0,0), (-1,-1), .6, colors.HexColor('#C6DDD2')),
+        ('LEFTPADDING', (0,0), (-1,-1), 16), ('RIGHTPADDING', (0,0), (-1,-1), 16),
+        ('TOPPADDING', (0,0), (-1,0), 14), ('BOTTOMPADDING', (0,-1), (-1,-1), 14),
+        ('TOPPADDING', (0,1), (-1,-1), 5), ('BOTTOMPADDING', (0,0), (-1,-2), 5),
+    ]))
+    story.append(KeepTogether([card]))
+    SimpleDocTemplate(str(destination), pagesize=page_size, leftMargin=15*mm, rightMargin=15*mm,
+                      topMargin=18*mm, bottomMargin=18*mm).build(story)

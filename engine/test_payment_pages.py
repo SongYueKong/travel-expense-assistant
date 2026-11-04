@@ -46,6 +46,22 @@ class PaymentLayoutTests(unittest.TestCase):
                             first, last = draws[0].args, draws[-1].args
                             for a,b in zip(first[1:],last[1:]): self.assertAlmostEqual(a,b)
 
+    def test_shared_payment_is_drawn_once_with_all_related_invoice_labels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            picture = root/'phone.png'
+            Image.new('RGB', (300,650), 'white').save(picture)
+            for references, expected in [(['001-01','001-02'], '001 -> 001-01, 001-02'),
+                                         (['001-01','001-02','001-03'], '001 -> 001-01..001-03')]:
+                with self.subTest(references=references), patch('payment_pages.canvas.Canvas') as factory:
+                    build_payment_pages([{'path':str(picture), 'number':'001', 'relatedInvoiceNumbers':references}], root/'out.pdf')
+                    page = factory.return_value
+                    self.assertEqual(page.drawInlineImage.call_count, 1)
+                    self.assertEqual(page.drawCentredString.call_args.args[-1], expected)
+                    font, size = page.setFont.call_args.args
+                    self.assertIn('Bold', font)
+                    self.assertAlmostEqual(size, 14)
+
     def test_invalid_layout_rejected_before_creating_pdf(self):
         for layout in [{}, [], 'portrait', {'orientation':'portrait','rows':True,'columns':2},
                        {'orientation':'portrait','rows':2.0,'columns':2},

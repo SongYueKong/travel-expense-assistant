@@ -15,6 +15,21 @@ Map<String, dynamic> mealTask() => {
       ...TripPeriod(DateTime(2026, 12, 31), DateTime(2027, 1, 2)).toJson()
     };
 void main() {
+  test('export keeps trip dates even when meal allowance is disabled', () {
+    final task = {
+      ...mealTask(),
+      'mealAllowanceEnabled': false,
+      'groups': [matched()]
+    };
+    final manifest = buildTaskExportManifest(task);
+    expect(manifest['tripStartDate'], '2026-12-31');
+    expect(manifest['tripEndDate'], '2027-01-02');
+    expect(
+        (manifest['summary'] as List).any((row) => row['kind'] == 'allowance'),
+        isFalse);
+    expect(manifest['grandTotals']['reimbursementCents'], 9950);
+  });
+
   test(
       'inclusive days cover same day leap day and year boundaries with exact cents',
       () {

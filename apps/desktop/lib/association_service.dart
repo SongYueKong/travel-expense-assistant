@@ -1,3 +1,4 @@
+import 'invoice_bundle.dart';
 import 'dart:convert';
 import 'package:travel_core/travel_core.dart';
 import 'import_service.dart';
@@ -39,7 +40,9 @@ class AssociationEditor {
       ...records(task['unmatchedMaterials']),
       ...records(task['unmatchedPayments']),
       for (final g in groups) ...records(g['payments']),
-      for (final g in groups) ...records(g['itineraryMaterials']),
+      for (final g in groups)
+        for (final member in invoiceMembers(g))
+          ...records(member['itineraryMaterials']),
     ]) {
       if (ignored.find(m) != null) continue;
       if (isPayment(m)) payments[evidenceKey(m)] = m;
@@ -53,7 +56,10 @@ class AssociationEditor {
       for (final p in records(g['payments'])) {
         if (i != groupIndex) owners[evidenceKey(p)] = owner;
       }
-      for (final path in (g['itineraries'] as List? ?? [])) {
+      for (final path in [
+        for (final member in invoiceMembers(g))
+          ...(member['itineraries'] as List? ?? [])
+      ]) {
         final key = materialPathKey(path);
         itineraries.putIfAbsent(
             key,
@@ -312,6 +318,7 @@ class AssociationEditor {
   }
 
   void addSlot() {
+    if (isInvoiceBundle(group)) throw StateError('共同支付组只能选择一笔支付');
     if (group['paperTaxi'] == true) throw StateError('每张出租车票对应一笔支付');
     if (byTrip) throw StateError('市内交通按行程单逐条选择');
     selected.add(null);
@@ -371,8 +378,9 @@ void _refreshUnmatched(MaterialRecord task, Iterable<MaterialRecord> pool,
   };
   final usedPaths = {
     for (final g in groups)
-      for (final path in (g['itineraries'] as List? ?? []))
-        materialPathKey(path)
+      for (final member in invoiceMembers(g))
+        for (final path in (member['itineraries'] as List? ?? []))
+          materialPathKey(path)
   };
   task['unmatchedPayments'] =
       pool.where((p) => !used.contains(evidenceKey(p))).toList();

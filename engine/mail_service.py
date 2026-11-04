@@ -16,6 +16,7 @@ import tempfile
 import threading
 import uuid
 from invoice_links import invoice_links, download_invoice_pdf
+from mail_archives import read_zip_pdfs
 
 PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
            '163':('163 邮箱','imap.163.com',{'163.com'}),
@@ -27,7 +28,7 @@ PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
            'aliyun':('阿里个人邮箱','imap.aliyun.com',{'aliyun.com'})}
 NETEASE={'163','126','yeah'}
 MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-MAIL_PARSE_VERSION=3
+MAIL_PARSE_VERSION=5
 MAX_MESSAGE_BYTES=50*1024*1024
 MAX_ATTACHMENT_BYTES=25*1024*1024
 
@@ -162,8 +163,23 @@ def extract_message(raw,source,cache):
         if part.is_multipart():continue
         filename=str(part.get_filename() or '')
         data=part.get_payload(decode=True) or b''
-        if filename.lower().endswith(('.zip','.rar','.7z')):
-            pending.append({'reason':'压缩附件需手动解压后补充','filename':filename,**origin});continue
+        archive_source = {'filename': filename or f'attachment-{index}.zip', 'partIndex': index, **origin}
+        if filename.lower().endswith(('.rar','.7z')):
+            pending.append({**archive_source,'reason':filename+'：RAR、7z 暂不支持自动读取，请手动解压后补充 PDF'});continue
+        if filename.lower().endswith('.zip') or part.get_content_type() in ('application/zip', 'application/x-zip-compressed') or data.startswith((b'PK\x03\x04', b'PK\x05\x06')):
+            extracted, issues = read_zip_pdfs(data, MAX_ATTACHMENT_BYTES)
+            for item in extracted:
+                digest,path,duplicate=cache.store_pdf(item['data'])
+                files.append({'path':path,'hash':digest,'filename':item['filename'],
+                              'partIndex':f'{index}:zip:{item["archiveMemberIndex"]}',
+                              'archiveFilename':archive_source['filename'],
+                              'archiveMember':item['archiveMember'], 'duplicate':duplicate, **origin})
+            for issue in issues:
+                detail = issue.get('archiveMember')
+                pending.append({**archive_source, **issue,
+                                'partIndex':f'{index}:zip:{issue["archiveMemberIndex"]}' if 'archiveMemberIndex' in issue else index,
+                                'reason':archive_source['filename'] + (' / '+detail if detail else '') + '：'+issue['reason']})
+            continue
         is_pdf=b'%PDF-' in data[:1024]
         if is_pdf or filename.lower().endswith('.pdf') or part.get_content_type()=='application/pdf':
             if not is_pdf:
@@ -192,6 +208,10 @@ def extract_message(raw,source,cache):
                                 'retryableDownload':True,**origin})
         if not links:
             pending.append({'reason':'邮件含下载链接，当前平台尚不支持自动下载，请打开原邮件下载 PDF 后补充',**origin})
+    # 同一封邮件已有 PDF 时，其他 OFD/XML 等格式无需额外补 PDF。
+    # 仅排除明确的“包内无 PDF”；损坏、加密、嵌套或 PDF 读取错误仍需处理。
+    if files:
+        pending = [item for item in pending if item.get('code') != 'archive_no_pdf']
     return {'files':files,'pending':pending,'subject':origin['subject'],'parserVersion':MAIL_PARSE_VERSION}
 
 def scan_mail(provider,account,authorization_code,start_date,end_date,folders,storage_root,

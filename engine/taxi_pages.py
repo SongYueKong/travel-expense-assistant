@@ -16,7 +16,7 @@ def build_taxi_pages(entries, output):
         c.drawString(margin, height-12*mm, '出租车纸票粘贴页')
         for index, entry in enumerate(entries[offset:offset+4]):
             x = margin+index*(box_width+gap)
-            c.setFont(fonts.latin_bold, 11)
+            c.setFont(fonts.latin_bold, 14)
             c.drawString(x, height-23*mm, entry['number'])
             c.setFont(fonts.chinese, 8)
             c.drawRightString(x+box_width, height-23*mm, '粘贴对应纸票')

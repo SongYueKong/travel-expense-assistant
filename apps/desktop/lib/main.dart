@@ -1,3 +1,6 @@
+import 'export_review.dart';
+import 'invoice_bundle.dart';
+import 'invoice_bundle_dialog.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -196,7 +199,7 @@ class _WorkspaceState extends State<Workspace> {
     if (index >= 0) tasks[index] = changed;
     task = changed;
     status =
-        '已更新 ${groups.length} 张发票，${(changed['unmatchedPayments'] as List).length} 笔支付未匹配；已复核项目保留，匹配完整即可导出';
+        '已更新 ${groups.fold<int>(0, (n, g) => n + invoiceMembers(g).length)} 张发票，${(changed['unmatchedPayments'] as List).length} 笔支付未匹配；已复核项目保留，匹配完整即可导出';
     message(status);
   }
 
@@ -250,6 +253,26 @@ class _WorkspaceState extends State<Workspace> {
       status = '关联已保存；匹配完整即可导出，人工复核可选';
       message(status);
     });
+  }
+
+  Future<void> combineInvoices(int index) async {
+    final key = groups[index]['hash'] ?? groups[index]['path'];
+    final updated = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (_) => InvoiceBundleDialog(task: task!, groupIndex: index));
+    if (updated == null || !mounted) return;
+    var saved = false;
+    await run(() async {
+      await persistAssociationTask(updated);
+      saved = true;
+    });
+    if (!saved || !mounted) return;
+    final current = groups.indexWhere((g) => (g['hash'] ?? g['path']) == key);
+    if (current >= 0 && isInvoiceBundle(groups[current])) {
+      await adjustAssociation(current);
+    } else {
+      message('已拆分为独立发票，原支付已返回未匹配列表');
+    }
   }
 
   Future<void> checkHotel(int index) async {
@@ -651,7 +674,7 @@ class _WorkspaceState extends State<Workspace> {
       task!['unmatchedMaterials'] = imported['unmatchedMaterials'];
       task!['duplicatePayments'] = imported['duplicatePayments'];
       status =
-          '导入 ${groups.length} 张发票，${(imported['unmatchedPayments'] as List).length} 笔支付未匹配，${(imported['issues'] as List).length} 项异常；匹配完整即可导出';
+          '导入 ${groups.fold<int>(0, (n, g) => n + invoiceMembers(g).length)} 张发票，${(imported['unmatchedPayments'] as List).length} 笔支付未匹配，${(imported['issues'] as List).length} 项异常；匹配完整即可导出';
       await save();
       message(status);
     });
@@ -721,6 +744,7 @@ class _WorkspaceState extends State<Workspace> {
     }
     manifest['taskName'] = task!['name'];
     manifest['paymentLayout'] = paymentLayout.toJson();
+    if (!await confirmExpenseCategories(context, manifest) || !mounted) return;
     final location = await getSaveLocation(
       suggestedName: taskExportFilename(task!['name']),
       initialDirectory: await store!.taskDirectory(task!) == null
@@ -939,7 +963,7 @@ class _WorkspaceState extends State<Workspace> {
                                       Flexible(
                                           child: Text(
                                               '票据 ¥${formatMoney(receiptTotal)} · 伙食补助 ¥${formatMoney(meal!.amountCents)}\n'
-                                              '${groups.length} 张发票 · ${checks.where((c) => !c.ready).length} 组待匹配 · '
+                                              '${groups.fold<int>(0, (n, g) => n + invoiceMembers(g).length)} 张发票 · ${checks.where((c) => !c.ready).length} 组待匹配 · '
                                               '${groups.where((g) => g['confirmed'] == true).length} 组已复核',
                                               textAlign: TextAlign.right)),
                                     ],
@@ -976,7 +1000,7 @@ class _WorkspaceState extends State<Workspace> {
                                               CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              '${invoiceNumber(i + 1)}  ${g['name']}',
+                                              '${invoiceNumber(i + 1)}  ${g['name']}${isInvoiceBundle(g) ? '（共${invoiceMembers(g).length}张发票）' : ''}',
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .titleMedium,
@@ -1080,6 +1104,20 @@ class _WorkspaceState extends State<Workspace> {
                                               crossAxisAlignment:
                                                   WrapCrossAlignment.center,
                                               children: [
+                                                if (g['category'] ==
+                                                    'intercity')
+                                                  OutlinedButton.icon(
+                                                      onPressed: busy
+                                                          ? null
+                                                          : () =>
+                                                              combineInvoices(
+                                                                  i),
+                                                      icon: const Icon(
+                                                          Icons.merge_type),
+                                                      label: Text(
+                                                          isInvoiceBundle(g)
+                                                              ? '合并／拆分发票'
+                                                              : '多票共用支付')),
                                                 if (g['category'] == 'hotel')
                                                   OutlinedButton.icon(
                                                       onPressed: busy

@@ -3,6 +3,53 @@ from documents import parse_pdf
 from ocr import enrich_ocr
 
 class ParsingTests(unittest.TestCase):
+    def test_didi_english_logo_service_fee_keeps_one_yuan_and_local_category(self):
+        for brand in ['didi','DiDi','DIDI']:
+            text=('开票人：测试人员\n'+brand+'\n电子发票（普通发票）\n'
+                  '发票号码：99990000000000000008\n开票日期：2026年11月03日\n'
+                  '名称：示例出行科技有限公司\n*生产生活服务*信息技\n术服务费\n'
+                  '合计 0.94¥ 0.06¥\n价税合计（小写）1.00¥')
+            parsed=parse_pdf(text)
+            self.assertEqual(parsed['type'],'invoice')
+            self.assertEqual(parsed['category'],'local')
+            self.assertEqual(parsed['platform'],'didi')
+            self.assertEqual(parsed['totalCents'],100)
+            self.assertEqual(parsed['expenseKind'],'platformServiceFee')
+            self.assertEqual(parsed['issueDate'],'2026-11-03')
+
+    def test_service_fee_label_split_by_numeric_invoice_columns(self):
+        text=('didi\n电子发票（普通发票）\n'
+              '*生产生活服务*信息技 次 1 0.94 0.94 6% 0.06\n'
+              '术服务费\n合计 0.94¥ 0.06¥\n价税合计（小写）1.00¥')
+        parsed=parse_pdf(text)
+        self.assertEqual(parsed['category'],'local')
+        self.assertEqual(parsed['expenseKind'],'platformServiceFee')
+        self.assertEqual(parsed['totalCents'],100)
+        parsed=parse_pdf(text.replace('didi\n',''),source_name='滴滴电子发票.pdf')
+        self.assertEqual(parsed['category'],'local')
+        self.assertEqual(parsed['expenseKind'],'platformServiceFee')
+
+    def test_didi_filename_requires_transport_or_service_item(self):
+        text='电子发票 *生产生活服务*信息技术服务费 ¥1.00'
+        self.assertIsNone(parse_pdf(text)['category'])
+        parsed=parse_pdf(text,source_name='滴滴电子发票.pdf')
+        self.assertEqual(parsed['category'],'local')
+        self.assertEqual(parsed['totalCents'],100)
+        self.assertIsNone(parse_pdf('电子发票 咨询费 ¥100.00',source_name='滴滴资料.pdf')['category'])
+        self.assertIsNone(parse_pdf(text+' candidate')['category'])
+        self.assertIsNone(parse_pdf(text+' didicloud')['category'])
+
+    def test_didi_brand_does_not_override_explicit_hotel_or_rail_category(self):
+        for item, category, platform in [('住宿费','hotel',None),('铁路电子客票','intercity','rail')]:
+            parsed=parse_pdf('电子发票 didi '+item+' ¥48.00',source_name='滴滴电子发票.pdf')
+            self.assertEqual(parsed['category'],category)
+            self.assertEqual(parsed['platform'],platform)
+            self.assertNotIn('expenseKind',parsed)
+        normal=parse_pdf('电子发票 滴滴 客运服务 ¥48.00')
+        self.assertEqual(normal['category'],'local')
+        self.assertEqual(normal['platform'],'didi')
+        self.assertNotIn('expenseKind',normal)
+
     def test_hotel_split_header_uses_layout_issue_date_not_checkin(self):
         text = ('电子发票 发票号码：\n开票日期：\n99990000000000000001\n2026年10月16日\n'
                 '*住宿费 ¥330.00\n2026年10月15日入住-10月16日离店')

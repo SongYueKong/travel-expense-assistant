@@ -1,3 +1,4 @@
+import 'invoice_bundle.dart';
 import 'dart:convert';
 import 'payment_identity.dart';
 
@@ -38,16 +39,82 @@ class PendingItem {
 Iterable<MaterialData> assignedMaterials(MaterialData task) sync* {
   for (final g in materialRecords(task['groups'])) {
     yield g;
+    if (isInvoiceBundle(g)) yield* invoiceMembers(g);
     yield* materialRecords(g['payments']);
-    yield* materialRecords(g['itineraryMaterials']);
-    for (final path in g['itineraries'] as List? ?? []) {
-      yield {'path': path};
+    for (final member in invoiceMembers(g)) {
+      yield* materialRecords(member['itineraryMaterials']);
+      for (final path in member['itineraries'] as List? ?? []) {
+        yield {'path': path};
+      }
     }
   }
 }
 
 String materialPendingId(MaterialData m) =>
     'material:${m['hash'] ?? identityPath(m['path'])}';
+
+String? _mailMessageKey(MaterialData source, {String? account}) {
+  final parts = [
+    source['account'] ?? account,
+    source['folder'],
+    source['uidValidity'],
+    source['uid']
+  ];
+  if (parts.any((value) => value == null || value.toString().isEmpty)) {
+    return null;
+  }
+  return jsonEncode([
+    parts[0].toString().trim().toLowerCase(),
+    ...parts.skip(1).map((v) => v.toString())
+  ]);
+}
+
+Iterable<MaterialData> _mailOrigins(MaterialData material) sync* {
+  yield material;
+  if (material['mailSource'] is Map) {
+    yield* _mailOrigins(MaterialData.from(material['mailSource']));
+  }
+  for (final source in [
+    ...materialRecords(material['pdfSources']),
+    ...materialRecords(material['additionalSources'])
+  ]) {
+    yield* _mailOrigins(source);
+  }
+}
+
+Set<String> _pdfMessageKeys(MaterialData task) {
+  final result = <String>{};
+  final materials = [
+    ...materialRecords(task['mailSources']),
+    ...materialRecords(task['pdfMaterials']),
+    ...materialRecords(task['unmatchedMaterials']),
+    ...assignedMaterials(task)
+  ];
+  final failedPaths = {
+    for (final material in materials)
+      if (material['failedInspection'] == true && material['path'] is String)
+        identityPath(material['path'])
+  };
+  for (final material in materials) {
+    final path = material['path'];
+    if (path is! String ||
+        !path.toLowerCase().endsWith('.pdf') ||
+        failedPaths.contains(identityPath(path))) {
+      continue;
+    }
+    for (final source in _mailOrigins(material)) {
+      final key = _mailMessageKey(source);
+      if (key != null) result.add(key);
+    }
+  }
+  return result;
+}
+
+bool _archiveWithoutPdf(MaterialData item) =>
+    item['code'] == 'archive_no_pdf' ||
+    // 兼容旧版已保存的待办，避免为清除此提示而再次连接邮箱。
+    (item['code'] == null &&
+        RegExp(r'ZIP\s*内未找到\s*PDF').hasMatch(item['reason']?.toString() ?? ''));
 
 List<PendingItem> pendingItems(MaterialData task,
     {bool includeHandled = false}) {
@@ -61,9 +128,17 @@ List<PendingItem> pendingItems(MaterialData task,
   }
 
   final history = materialRecords(task['mailHistory']);
+  final pdfMessages = _pdfMessageKeys(task);
   if (history.isNotEmpty) {
     for (final kind in ['pending', 'failures']) {
       for (final m in materialRecords(history.last[kind])) {
+        final messageKey = _mailMessageKey(m, account: history.last['account']);
+        if (kind == 'pending' &&
+            _archiveWithoutPdf(m) &&
+            messageKey != null &&
+            pdfMessages.contains(messageKey)) {
+          continue;
+        }
         add(PendingItem(
             id: 'mail:$kind:${jsonEncode([
                   history.last['account'],

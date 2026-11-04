@@ -75,6 +75,7 @@ class _PdfLibraryDialogState extends State<PdfLibraryDialog> {
               ListTile(
                   title: Text(s['subject'] ?? '主题未记录'),
                   subtitle: SelectableText('附件：${s['filename'] ?? e.name}\n'
+                      '${s['archiveFilename'] == null ? '' : '压缩包：${s['archiveFilename']}\n包内文件：${s['archiveMember'] ?? s['filename']}\n'}'
                       '发件人：${s['sender'] ?? '未记录'}\n邮箱：${s['account'] ?? '未记录'}\n'
                       '接收时间：${s['receivedAt'] ?? '未记录'}\n文件夹：${s['folder'] ?? '未记录'} · 邮件编号：${s['uid'] ?? '未记录'}')),
           ]),

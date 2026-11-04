@@ -4,6 +4,7 @@ import 'import_service.dart';
 import 'services.dart';
 import 'pdf_catalog.dart';
 import 'matching_helpers.dart';
+import 'invoice_bundle.dart';
 
 class MaterialMerger {
   final ProcessingClient engine;
@@ -19,6 +20,7 @@ class MaterialMerger {
     final oldGroups =
         (task['groups'] as List? ?? []).cast<Map<String, dynamic>>();
     bool protected(Map<String, dynamic> g) =>
+        isInvoiceBundle(g) ||
         g['confirmed'] == true ||
         g['manuallyEntered'] == true ||
         (!recalculateManual && g['manuallyAssociated'] == true) ||
@@ -41,8 +43,16 @@ class MaterialMerger {
         protectedPaths.add(materialPathKey(p['path']));
         reservedPayments.add(p['hash'] ?? p['path']);
       }
-      final number = group['document']?['number'] as String?;
-      if (number != null) reservedInvoices[number] = group['invoiceCents'];
+      for (final member in invoiceMembers(group)) {
+        if (member['path'] is String) {
+          protectedPaths.add(materialPathKey(member['path']));
+        }
+        for (final path in member['itineraries'] as List? ?? []) {
+          protectedPaths.add(materialPathKey(path));
+        }
+        final number = member['document']?['number'] as String?;
+        if (number != null) reservedInvoices[number] = member['invoiceCents'];
+      }
     }
     void add(String path, [Map<String, dynamic>? source]) {
       final key = materialPathKey(path);

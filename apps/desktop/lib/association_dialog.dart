@@ -1,3 +1,4 @@
+import 'invoice_bundle.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:travel_core/travel_core.dart';
@@ -226,7 +227,9 @@ class _AssociationDialogState extends State<AssociationDialog> {
             });
           }),
       const SizedBox(height: 8),
-      if (!editor.byTrip && editor.group['paperTaxi'] != true)
+      if (!editor.byTrip &&
+          editor.group['paperTaxi'] != true &&
+          !isInvoiceBundle(editor.group))
         const Text('尚未取得逐条行程，请选择完整行程单；无法识别的材料需手工核对。',
             style: TextStyle(color: Colors.deepOrange)),
       if (editor.itinerary != null &&
@@ -328,7 +331,7 @@ class _AssociationDialogState extends State<AssociationDialog> {
             onChanged: (value) {
               if (value != null) setState(() => active = value);
             }),
-        if (!editor.byTrip)
+        if (!editor.byTrip && !isInvoiceBundle(editor.group))
           TextButton.icon(
               onPressed: () => setState(() {
                     editor.addSlot();
