@@ -26,7 +26,7 @@ Push-Location (Join-Path $taskRoot 'apps/desktop')
 try {
     if (-not $SkipUnitTests) {
         $ErrorActionPreference = 'Continue'
-        & $taskFlutter test --no-pub --reporter expanded 2>&1 | ForEach-Object { "$_" } | Set-Content -LiteralPath (Join-Path $taskReports 'flutter-tests.log') -Encoding UTF8
+        & $taskFlutter --no-version-check test --no-pub --reporter expanded 2>&1 | ForEach-Object { "$_" } | Set-Content -LiteralPath (Join-Path $taskReports 'flutter-tests.log') -Encoding UTF8
         $taskSuites['flutterExitCode'] = $LASTEXITCODE
         if ($LASTEXITCODE -ne 0) { $taskFailed = $true }
         $ErrorActionPreference = 'Stop'

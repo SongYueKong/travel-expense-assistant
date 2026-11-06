@@ -1,3 +1,4 @@
+import 'payment_amount_evidence.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:travel_core/travel_core.dart';
@@ -85,6 +86,7 @@ class _PendingIssuesDialogState extends State<PendingIssuesDialog> {
               const SizedBox(height: 10),
               SelectableText('文件：${m['name'] ?? ''}\n路径：${m['path'] ?? ''}'),
               if (amount is int) Text('识别／修正金额：¥${formatMoney(amount)}'),
+              PaymentAmountEvidence(material: m),
               Text('类别：${const {
                     'local': '市内交通',
                     'hotel': '酒店住宿',

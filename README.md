@@ -2,11 +2,11 @@
 
 一个面向个人差旅报账的 Windows 桌面工具，用于收集发票、核对支付截图、整理材料并导出报账 PDF。
 
-开发者：**松月空**。当前版本：**0.1.22**（预发布）。欢迎使用测试数据试用并反馈问题。
+开发者：**松月空**。当前版本：**0.1.24**（预发布）。欢迎使用测试数据试用并反馈问题。
 
-[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.22) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
+[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.24) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
 
-[查看 0.1.22 更新说明](docs/releases/v0.1.22.md)
+[查看 0.1.24 更新说明](docs/releases/v0.1.24.md)
 
 ## 下载和运行
 

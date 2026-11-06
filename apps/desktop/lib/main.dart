@@ -1,3 +1,4 @@
+import 'payment_amount_evidence.dart';
 import 'export_review.dart';
 import 'invoice_bundle.dart';
 import 'invoice_bundle_dialog.dart';
@@ -1431,13 +1432,22 @@ class _AddGroupState extends State<AddGroup> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: TextField(
-                            controller: paymentAmounts[i],
-                            decoration: InputDecoration(
-                              labelText: '第 ${i + 1} 笔实付净额（元）',
-                              helperText: payments[i]['name'],
-                            ),
-                          ),
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextField(
+                                  controller: paymentAmounts[i],
+                                  decoration: InputDecoration(
+                                    labelText: '第 ${i + 1} 笔实付净额（元）',
+                                    helperText: payments[i]['name'],
+                                  ),
+                                ),
+                                PaymentAmountEvidence(
+                                    material: payments[i],
+                                    onUse: (value) => setState(() =>
+                                        paymentAmounts[i].text =
+                                            formatMoney(value)))
+                              ]),
                         ),
                         IconButton(
                           onPressed: busy

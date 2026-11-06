@@ -90,6 +90,8 @@ Future<void> main(List<String> args) async {
     final sourceHashes = <String, String>{};
     for (final name in [
       'engine/ocr.py',
+      'engine/payment_amounts.py',
+      'engine/hotel_identity.py',
       'engine/documents.py',
       'engine/worker.py',
       'packages/travel_core/lib/travel_core.dart',

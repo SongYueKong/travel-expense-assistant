@@ -1,3 +1,4 @@
+import 'payment_amount_evidence.dart';
 import 'invoice_bundle.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -435,6 +436,17 @@ class _AssociationDialogState extends State<AssociationDialog> {
                     Text(cents == null
                         ? '金额未识别'
                         : '支付 ¥${formatMoney(cents)} · 差额 ${difference! >= 0 ? '+' : ''}${formatMoney(difference)} 元'),
+                    PaymentAmountEvidence(
+                        material: m,
+                        onUse: owner != null
+                            ? null
+                            : (value) {
+                                if (editor.selected[active] != key) choose(key);
+                                if (editor.selected[active] == key) {
+                                  setState(() => amounts[active].text =
+                                      formatMoney(value));
+                                }
+                              }),
                     if (paymentDiscountCents(m) > 0)
                       Text(
                           '截图优惠 −${formatMoney(paymentDiscountCents(m))} 元${evidence != null && discountExplains(editor.charge(active), evidence) ? ' · 差额恰好等于优惠' : ''}'),

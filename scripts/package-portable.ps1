@@ -39,12 +39,12 @@ if (Test-Path -LiteralPath $taskCmakeCache) {
 [void][System.IO.Directory]::CreateDirectory($taskBuildRoot)
 Push-Location (Join-Path $taskSourceRoot 'apps/desktop')
 try {
-    & $taskFlutter pub get --offline
+    & $taskFlutter --no-version-check pub get --offline
     if ($LASTEXITCODE -ne 0) { throw '依赖未就绪，请先安装开发依赖' }
     if (-not $SkipChecks) {
-        & $taskFlutter analyze --no-pub lib test tool
+        & $taskFlutter --no-version-check analyze --no-pub lib test tool
         if ($LASTEXITCODE -ne 0) { throw '静态检查失败' }
-        & $taskFlutter test --no-pub --reporter expanded *> (Join-Path $taskBuildRoot 'flutter-tests.log')
+        & $taskFlutter --no-version-check test --no-pub --reporter expanded *> (Join-Path $taskBuildRoot 'flutter-tests.log')
         if ($LASTEXITCODE -ne 0) { throw "Flutter回归失败，见 $taskBuildRoot/flutter-tests.log" }
         $ErrorActionPreference = 'Continue'
         & $taskPython -m unittest discover -s (Join-Path $taskRoot 'engine') -v *> (Join-Path $taskBuildRoot 'engine-tests.log')
@@ -56,7 +56,7 @@ try {
     # 只删除该已知生成文件；已安装的Debug程序和用户数据不受影响。
     $taskDebugKernel = Join-Path $taskSourceRoot 'apps/desktop/build/flutter_assets/kernel_blob.bin'
     if (Test-Path -LiteralPath $taskDebugKernel) { Remove-Item -LiteralPath $taskDebugKernel -Force }
-    & $taskFlutter build windows --release --no-pub "--build-name=$Version"
+    & $taskFlutter --no-version-check build windows --release --no-pub "--build-name=$Version"
     if ($LASTEXITCODE -ne 0) { throw 'Release构建失败' }
 } finally {
     Pop-Location

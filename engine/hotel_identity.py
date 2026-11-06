@@ -37,9 +37,26 @@ def payment_payee(data):
     names=set()
     for label in data.get('lines',[]):
         text=compact(label['text'])
-        match=re.match(r'^(?:收款方全称|收款单位|收款方|商户全称)[:：]?(.*)$',text)
+        match=re.match(r'^(?:收款方全称|收款单位|收款方|商户全称|对方户名)[:：]?(.*)$',text)
         if not match:continue
-        values=[match[1]] if match[1] else [compact(row['text']) for row in data['lines']
-           if row['x']>label['x']+50 and abs(row['y']-label['y'])<=max(row['height'],label['height'])*.75]
+        if match[1]:
+            values = [match[1]]
+        else:
+            rows = [row for row in data['lines'] if row['x'] > label['x'] + 50 and
+                    abs(row['y'] - label['y']) <= min(row['height'], label['height']) * .75]
+            values = []
+            for row in rows:
+                value = compact(row['text'])
+                # 长单位名称折行时只拼接同一值列、下一个字段之前的相邻文字。
+                following_labels = [other['y'] for other in data['lines']
+                                    if other['x'] < row['x'] - 50 and other['y'] > label['y'] + label['height']]
+                limit = min(following_labels, default=float('inf'))
+                continuation = sorted((other for other in data['lines']
+                                       if row['height'] < other['y'] - row['y'] <= row['height'] * 1.8
+                                       and other['y'] < limit and abs(other['x'] - row['x']) <= row['height']),
+                                      key=lambda other: other['y'])
+                if len(continuation) == 1:
+                    value += compact(continuation[0]['text'])
+                values.append(value)
         names.update(v for v in values if v and v not in ['收款方','付款方','收款方全称','商户全称'])
     return next(iter(names)) if len(names)==1 else None

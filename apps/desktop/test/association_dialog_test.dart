@@ -40,6 +40,50 @@ Future<void> openEditor(
 
 void main() {
   testWidgets(
+      'uncertain amount candidate can fill a draft and is persisted only by save',
+      (tester) async {
+    final task = fixture();
+    task['unmatchedPayments'] = <MaterialRecord>[];
+    final m = payment('uncertain');
+    m['ocr'].remove('paymentCandidate');
+    m['ocr']['amountCandidates'] = [
+      {
+        'cents': 9999,
+        'role': 'paid',
+        'label': '实付金额',
+        'source': {'text': '99.99'}
+      }
+    ];
+    m['ocr']['amountDecision'] = {'status': 'needsReview', 'reason': '需要核对'};
+    task['unmatchedMaterials'] = [m];
+    final before = jsonEncode(task);
+    dynamic received;
+    await openEditor(tester, task, (v) => received = v);
+    await tester.ensureVisible(find.text('显示全部截图（含条件不符、未识别和已占用）'));
+    await tester.tap(find.text('显示全部截图（含条件不符、未识别和已占用）'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('填入实付'));
+    await tester.tap(find.text('填入实付'));
+    await tester.pumpAndSettle();
+    expect(received, isNull);
+    expect(jsonEncode(task), before);
+    expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('amount-0')))
+            .controller!
+            .text,
+        '99.99');
+    await tester.tap(find.text('保存选择'));
+    await tester.pumpAndSettle();
+    expect(
+        received['groups'][0]['payments'].single['manualPaymentCents'], 9999);
+    expect(received['groups'][0]['payments'].single['ocr']['paymentCandidate'],
+        isNull);
+    expect(jsonEncode(task), before);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
       'refreshing old itinerary adds missing row while preserving edited net amount',
       (tester) async {
     final task = incompleteTripTask(),

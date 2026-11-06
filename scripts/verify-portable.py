@@ -57,6 +57,18 @@ def main():
         assert parsed['category']=='local' and parsed['platform']=='didi' and parsed['totalCents']==100
         assert parsed['expenseKind']=='platformServiceFee'
         results['didiEnglishServiceFee']=True
+        # 在发行包自己的新模块中验证语义判断，金额不依赖屏幕高度百分比。
+        from ocr import enrich_ocr
+        semantic={'width':1000,'height':9000,'text':'付款成功 支付时间 实付金额 余额',
+                  'lines':[{'text':'实付金额：¥48.00','x':100,'y':7000,'width':400,'height':30},
+                           {'text':'余额：¥9999.00','x':100,'y':100,'width':600,'height':80},
+                           {'text':'支付时间：2026-11-06 12:00:00','x':100,'y':8000,'width':600,'height':30}]}
+        semantic_result=enrich_ocr(semantic)
+        assert semantic_result['paymentCandidate']['cents']==4800
+        assert {r['role'] for r in semantic_result['amountCandidates']}=={'paid','balance'}
+        assert semantic_result['amountRecognitionVersion']==2
+        results['semanticPaymentAmount']=True
+
         zipped=BytesIO()
         with ZipFile(zipped,'w') as archive: archive.writestr('OFD.xml',b'<ofd/>')
         pdf_zip=BytesIO()
