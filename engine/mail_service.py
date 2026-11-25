@@ -16,6 +16,7 @@ import tempfile
 import threading
 import uuid
 from invoice_links import invoice_links, download_invoice_pdf
+from urllib.parse import urlsplit
 from mail_archives import read_zip_pdfs
 
 PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
@@ -28,7 +29,7 @@ PROVIDERS={'qq':('QQ 邮箱','imap.qq.com',{'qq.com','foxmail.com'}),
            'aliyun':('阿里个人邮箱','imap.aliyun.com',{'aliyun.com'})}
 NETEASE={'163','126','yeah'}
 MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-MAIL_PARSE_VERSION=5
+MAIL_PARSE_VERSION=6
 MAX_MESSAGE_BYTES=50*1024*1024
 MAX_ATTACHMENT_BYTES=25*1024*1024
 
@@ -198,6 +199,10 @@ def extract_message(raw,source,cache):
     if not files and has_links and invoice_link_candidate(origin['subject'],'\n'.join(body_texts)):
         links=invoice_links('\n'.join(link_texts))
         for index,url in enumerate(links):
+            if urlsplit(url).hostname=='a.51fapiao.cn':
+                pending.append({'reason':'51发票链接需在官方网页点击“PDF下载”；下载后请添加PDF材料，确认补齐后再标记解决',
+                                'downloadUrl':url,'downloadProvider':'51fapiao','retryableDownload':True,**origin})
+                continue
             try:
                 data=download_invoice_pdf(url,MAX_ATTACHMENT_BYTES)
                 digest,path,duplicate=cache.store_pdf(data)

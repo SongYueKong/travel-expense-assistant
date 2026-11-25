@@ -2,11 +2,11 @@
 
 一个面向个人差旅报账的 Windows 桌面工具，用于收集发票、核对支付截图、整理材料并导出报账 PDF。
 
-开发者：**松月空**。当前版本：**0.1.24**（预发布）。欢迎使用测试数据试用并反馈问题。
+开发者：**松月空**。当前版本：**0.1.26**（预发布）。欢迎使用测试数据试用并反馈问题。
 
-[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.24) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
+[下载 Windows 免安装版](https://github.com/SongYueKong/travel-expense-assistant/releases/tag/v0.1.26) · [反馈问题](https://github.com/SongYueKong/travel-expense-assistant/issues) · [GPL 3.0 许可证](LICENSE)
 
-[查看 0.1.24 更新说明](docs/releases/v0.1.24.md)
+[查看 0.1.26 更新说明](docs/releases/v0.1.26.md)
 
 ## 下载和运行
 
@@ -23,6 +23,8 @@
 - **邮箱导入**：按时间范围获取邮件中的 PDF 附件，支持 QQ/Foxmail、163、126、yeah、139、新浪 `sina.com` / `sina.cn`、阿里个人邮箱 `aliyun.com`。邮箱需开启 IMAP，并使用相应客户端授权凭据；未开放自定义服务器和企业邮箱配置。
 - **邮件 ZIP 附件**：自动读取普通 ZIP 内的 PDF，支持一个压缩包多份 PDF，保留邮件及压缩包来源并按内容去重。不会执行附件或将包内路径写入磁盘。加密、损坏、嵌套压缩包及 RAR/7z 会保留具体待办；OFD/XML/图片不会作为 PDF 导入。同一封邮件已有可导入 PDF 时，不再提示其他附件或压缩包仅因不含 PDF 产生的待办；加密、损坏及 PDF 读取失败仍保留提示。已有记录可按邮件来源消除这一旧提示，无需重新获取邮件。限压缩包 25 MB、单个 PDF 25 MB、包内 200 项、解压后总计 50 MB。升级后重新从邮箱获取原时间区间，旧压缩包待办会随最新导入结果刷新。
 - **本地材料**：添加发票、行程单和手机支付记录截图；查看全部 PDF、发票信息、行程内容及截图。
+- **补充发票自动匹配**：添加 PDF 后先读取发票信息，单页扫描发票可使用 Windows 本地 OCR 补充识别明确的价税合计／小写金额，再按当前分类、金额和时间规则与已有支付匹配。符合规则且可确定关联时直接完成，多个同等候选、缺行程或未识别信息保留人工核对；之后补充支付截图仍可继续匹配。
+- **官方下载与拖入**：51 发票邮件提供“打开官方下载页”，使用默认浏览器下载 PDF 后，可直接拖入当前邮件待办的详情区域，或点击“选择 PDF 文件”。核对邮件中可用的发票号码、金额并成功保存后，只关闭对应待办；失败可重试，原下载文件保留。网页需要验证或确认的步骤由用户完成，不自动绕过。
 - **支付金额识别**：按字段含义和相对布局区分实付、订单、优惠、退款和余额，并交叉核验；多个金额冲突时保留待核对。展开“查看金额依据／候选”可在原图框选来源，确认后填入实际支付净额，保存关联生效。
 - **分类核对**：按城际交通、住宿、市内交通组织。市内交通支持一张发票通过多条行程对应多笔支付。
 - **多票共用支付**：城际交通支持将多张发票合并为共同支付组（例如一笔扣款对应多张高铁退票费发票），以发票合计与一笔实付核对，取较小值计入申报；支付仅统计一次。点击条目“多票共用支付”，勾选其他发票，再选择支付截图；已关联不同支付时需先解除多余关联。可随时拆分，支付返回未匹配列表。导出保留每张原件，以子序号标注，截图只排一次并标注对应发票序号。
@@ -136,7 +138,7 @@ cd apps/desktop
 ..\..\.tools\flutter\bin\flutter.bat test --no-pub
 ```
 
-当前已验证 220 项 Flutter 测试和 149 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
+当前已验证 235 项 Flutter 测试和 156 项 Python 测试。另有私有真实材料回归集，其原件、人工标注和报告不会公开提交；开源克隆中没有这套材料。格式和执行方式见 [测试数据集说明](testdata/README.md)。有自行准备的本地数据集后，可运行：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-regression.ps1
@@ -158,6 +160,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 ```
 
 版本号读取 `apps/desktop/pubspec.yaml`。脚本建立独立源码构建目录，执行静态检查和测试，收集运行库、自带 Python 及第三方声明，进行引擎/SQLite/实际 EXE 启动自检，然后生成 `output/releases` 下的 ZIP、SHA256 和包内文件清单。
+
+发布使用的 Python 依赖须满足 `engine/requirements.txt`；可通过 `-BuildPython <独立构建环境的 python.exe 路径>` 指定环境，避免继承不兼容的全局依赖版本。
 
 源码由 Git 管理，免安装 ZIP 作为 GitHub Release 附件发布。私有材料、凭据、测试报告和本机诊断文件不进入仓库。
 

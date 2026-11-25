@@ -9,6 +9,7 @@ __pycache__/
 .local/
 差旅记录/
 示例数据/
+支付记录/
 _work/
 *.docx
 *.pdf

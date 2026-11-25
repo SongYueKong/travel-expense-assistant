@@ -5,6 +5,7 @@
 | 组件 | 用途 | 许可信息位置 |
 | --- | --- | --- |
 | Flutter / Dart 及 Flutter 插件 | 桌面界面和客户端运行 | 免安装包 `data/flutter_assets/NOTICES.Z`；依赖包自身 LICENSE |
+| desktop_drop（Apache-2.0） | Windows 文件拖入 | Flutter 汇总声明及该依赖自身 LICENSE |
 | Drift / SQLite 及 Dart 依赖 | 本地数据库和业务支持 | Flutter 汇总声明、各依赖自身 LICENSE；SQLite 自身发布声明 |
 | CPython | 本地引擎运行 | `runtime/python/LICENSE.txt` |
 | pypdf、Pillow、ReportLab、charset-normalizer、pypdfium2 / PDFium | PDF、图片、文字识别前后处理与预览 | `runtime/python/Lib/site-packages` 中各组件的许可和 `.dist-info` 许可目录 |

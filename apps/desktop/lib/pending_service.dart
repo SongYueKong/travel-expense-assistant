@@ -9,6 +9,8 @@ MaterialData copyTask(MaterialData task) => jsonDecode(jsonEncode(task));
 class PendingItem {
   final String id, kind, title, reason;
   final MaterialData? material;
+  final String? downloadUrl;
+  final MaterialData? mailSource;
   final String state;
   const PendingItem(
       {required this.id,
@@ -16,6 +18,8 @@ class PendingItem {
       required this.title,
       required this.reason,
       this.material,
+      this.downloadUrl,
+      this.mailSource,
       this.state = 'pending'});
   bool get isMaterial => material != null;
   MaterialData toJson() => {
@@ -23,6 +27,8 @@ class PendingItem {
         'kind': kind,
         'title': title,
         'reason': reason,
+        if (downloadUrl != null) 'downloadUrl': downloadUrl,
+        if (mailSource != null) 'mailSource': mailSource,
         if (material != null) 'material': material
       };
   factory PendingItem.fromJson(MaterialData value,
@@ -33,6 +39,8 @@ class PendingItem {
           title: value['title'],
           reason: value['reason'],
           material: value['material'],
+          downloadUrl: value['downloadUrl'],
+          mailSource: value['mailSource'],
           state: state);
 }
 
@@ -150,6 +158,21 @@ List<PendingItem> pendingItems(MaterialData task,
                   m['reason']
                 ])}',
             kind: 'mail',
+            downloadUrl: m['downloadUrl'],
+            mailSource: {
+              for (final key in [
+                'account',
+                'folder',
+                'uidValidity',
+                'uid',
+                'subject',
+                'sender',
+                'messageId',
+                'receivedAt'
+              ])
+                if (m[key] != null) key: m[key],
+              'account': m['account'] ?? history.last['account']
+            },
             title:
                 '${kind == 'pending' ? '邮件待处理' : '邮件获取失败'}：${m['subject'] ?? m['folder'] ?? ''}',
             reason: '${m['reason'] ?? ''}\n请重新获取邮件，或手工下载后导入材料；标记解决仅关闭这条提示。'));

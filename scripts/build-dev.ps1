@@ -16,7 +16,7 @@ try {
         $taskKernel = Join-Path $taskRoot 'apps/desktop/build/flutter_assets/kernel_blob.bin'
         if (Test-Path -LiteralPath $taskKernel) { Remove-Item -LiteralPath $taskKernel -Force }
     }
-    & $taskFlutter build windows "--$($taskMode.ToLowerInvariant())" --no-pub "--dart-define=PROJECT_ROOT=$taskRoot"
+    & $taskFlutter --no-version-check build windows "--$($taskMode.ToLowerInvariant())" --no-pub "--dart-define=PROJECT_ROOT=$taskRoot"
     if ($LASTEXITCODE -ne 0) { throw '开发版构建失败，请检查前面的编译错误；如提示EXE被占用，请关闭对应窗口后重试' }
 } finally {
     Pop-Location

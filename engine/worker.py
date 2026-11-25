@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import subprocess
 import tempfile
 from PIL import Image, ImageOps
 from pypdf import PdfReader, PdfWriter, Transformation
@@ -60,6 +61,7 @@ def inspect_file(path: str, material_dir: str, source_name: str | None = None, p
         os.replace(temporary, target)
     result = dict(hash=digest, path=str(target), name=source.name, text='',
                   needsReview=True, ocrAvailable=False)
+    if purpose == 'invoice': result['purpose']='invoice'
     if suffix == '.pdf':
         reader = PdfReader(target)
         result.update(pages=len(reader.pages), text='\n'.join(p.extract_text() or '' for p in reader.pages))
@@ -73,6 +75,17 @@ def inspect_file(path: str, material_dir: str, source_name: str | None = None, p
                 result['document'] = parse_pdf(result['text'], layout_text=layout, source_name=source_name or source.name)
             except (ValueError, KeyError, TypeError):
                 pass
+        if purpose == 'invoice' and (not result['text'].strip() or
+                (result['document'].get('type')=='invoice' and result['document'].get('totalCents') is None)):
+            from invoice_ocr import recognize_invoice_pdf
+            try:
+                invoice_ocr=recognize_invoice_pdf(str(target), source_name or source.name)
+                result['invoiceOcr']=invoice_ocr
+                if invoice_ocr.get('available'):
+                    result.update(originalText=result['text'],text=invoice_ocr['text'],document=invoice_ocr['document'],ocrAvailable=True,needsOcr=False)
+                else: result['ocrReason']=invoice_ocr.get('reason','发票 OCR 不可用，请人工核对')
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+                result['ocrReason']='扫描发票识别未完成，请核对原件或使用人工录入'
         if result['document'].get('category')=='hotel':
             result['document']['sellerName']=invoice_seller(reader)
     else:

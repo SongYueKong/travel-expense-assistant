@@ -58,6 +58,7 @@ class FolderImporter {
             Map<String, dynamic>.from(await engine.call('inspect', {
           'path': files[i].path,
           'material_dir': materialDirectory,
+          if (source?['purpose'] == 'invoice') 'purpose': 'invoice',
           if (source?['filename'] != null || source?['name'] != null)
             'source_name': source?['filename'] ?? source?['name']
         }));

@@ -26,6 +26,7 @@ def main():
     version=json.loads((package/'version.json').read_text(encoding='utf-8'))['version']
     assert f'https://github.com/SongYueKong/travel-expense-assistant/tree/v{version}' in source_reference
     assert (package/'THIRD_PARTY_NOTICES.md').is_file()
+    assert (package/'desktop_drop_plugin.dll').is_file()
     results['gplLicenseAndSourceReference']=True
     with tempfile.TemporaryDirectory(prefix='travel-portable-check-',dir=report.parent) as temporary:
         temp=Path(temporary)
@@ -68,6 +69,16 @@ def main():
         assert {r['role'] for r in semantic_result['amountCandidates']}=={'paid','balance'}
         assert semantic_result['amountRecognitionVersion']==2
         results['semanticPaymentAmount']=True
+
+        # 新版补充发票 OCR 和官方网页入口模块必须随程序包一起交付。
+        from invoice_ocr import parse_invoice_ocr
+        from invoice_links import invoice_links
+        _, scan_document=parse_invoice_ocr({'lines':[
+            {'text':'电子发票 铁路电子客票','x':0,'y':0,'width':500,'height':20},
+            {'text':'价税合计（小写）￥48.00','x':0,'y':100,'width':500,'height':20}]})
+        assert scan_document['totalCents']==4800 and scan_document['recognitionMethod']=='windows-local-ocr'
+        assert invoice_links('下载 https://a.51fapiao.cn/v/SyntheticTest')==['https://a.51fapiao.cn/v/SyntheticTest']
+        results['supplementInvoiceOcrAndOfficialLink']=True
 
         zipped=BytesIO()
         with ZipFile(zipped,'w') as archive: archive.writestr('OFD.xml',b'<ofd/>')

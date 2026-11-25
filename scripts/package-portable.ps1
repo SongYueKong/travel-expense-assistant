@@ -1,9 +1,9 @@
-﻿param([string]$Version = '',[switch]$SkipChecks)
+﻿param([string]$Version = '',[switch]$SkipChecks,[string]$BuildPython = '')
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $taskRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $taskFlutter = Join-Path $taskRoot '.tools/flutter/bin/flutter.bat'
-$taskPython = Join-Path $taskRoot '.venv/Scripts/python.exe'
+$taskPython = if ($BuildPython) { (Resolve-Path -LiteralPath $BuildPython).Path } else { Join-Path $taskRoot '.venv/Scripts/python.exe' }
 if (-not $Version) {
     $taskPubspec = Get-Content -LiteralPath (Join-Path $taskRoot 'apps/desktop/pubspec.yaml') -Raw
     $Version = [regex]::Match($taskPubspec,'(?m)^version:\s*([^+\s]+)').Groups[1].Value

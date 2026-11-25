@@ -51,7 +51,11 @@ class MaterialMerger {
           protectedPaths.add(materialPathKey(path));
         }
         final number = member['document']?['number'] as String?;
-        if (number != null) reservedInvoices[number] = member['invoiceCents'];
+        if (number != null) {
+          // 去重比较票面金额，保留用户手工修正后的费用金额。
+          reservedInvoices[number] =
+              member['document']?['totalCents'] ?? member['invoiceCents'];
+        }
       }
     }
     void add(String path, [Map<String, dynamic>? source]) {

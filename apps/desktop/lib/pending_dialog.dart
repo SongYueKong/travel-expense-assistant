@@ -1,3 +1,5 @@
+import 'pending_pdf_drop_area.dart';
+import 'open_invoice_link.dart';
 import 'payment_amount_evidence.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -13,13 +15,16 @@ class PendingIssuesDialog extends StatefulWidget {
   final Future<void> Function(MaterialData) onSave;
   final Future<MaterialData?> Function(MaterialData, PendingItem) onResolve;
   final Future<MaterialData> Function(MaterialData) onRetry;
+  final Future<MaterialData> Function(MaterialData, PendingItem, List<String>)?
+      onImportPdfs;
   const PendingIssuesDialog(
       {super.key,
       required this.task,
       required this.onSave,
       required this.onResolve,
       required this.onRetry,
-      this.loadPreview});
+      this.loadPreview,
+      this.onImportPdfs});
   @override
   State<PendingIssuesDialog> createState() => _PendingIssuesDialogState();
 }
@@ -27,7 +32,7 @@ class PendingIssuesDialog extends StatefulWidget {
 class _PendingIssuesDialogState extends State<PendingIssuesDialog> {
   late MaterialData task;
   String filter = 'pending';
-  String? selectedId, error;
+  String? selectedId, error, notice;
   bool busy = false;
   List<PendingItem> get all => pendingItems(task, includeHandled: true);
   List<PendingItem> get visible => all
@@ -45,17 +50,24 @@ class _PendingIssuesDialogState extends State<PendingIssuesDialog> {
     task = copyTask(widget.task);
   }
 
-  Future<void> apply(Future<MaterialData?> Function() action) async {
+  Future<void> apply(Future<MaterialData?> Function() action,
+      {String? success}) async {
     setState(() {
       busy = true;
       error = null;
+      notice = null;
     });
     try {
       final updated = await action();
       if (updated != null) {
         final cleaned = cleanPending(updated);
         await widget.onSave(cleaned);
-        if (mounted) setState(() => task = cleaned);
+        if (mounted) {
+          setState(() {
+            task = cleaned;
+            notice = success;
+          });
+        }
       }
     } catch (e) {
       if (mounted) setState(() => error = '$e');
@@ -72,67 +84,107 @@ class _PendingIssuesDialogState extends State<PendingIssuesDialog> {
         m?['document']?['totalCents'];
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(
-          child: SingleChildScrollView(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-            Text(item.title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            SelectableText(item.reason),
-            if (item.state != 'pending')
-              Text(item.state == 'ignored' ? '状态：已忽略' : '状态：已解决',
-                  style: const TextStyle(color: Colors.teal)),
-            if (m != null) ...[
-              const SizedBox(height: 10),
-              SelectableText('文件：${m['name'] ?? ''}\n路径：${m['path'] ?? ''}'),
-              if (amount is int) Text('识别／修正金额：¥${formatMoney(amount)}'),
-              PaymentAmountEvidence(material: m),
-              Text('类别：${const {
-                    'local': '市内交通',
-                    'hotel': '酒店住宿',
-                    'intercity': '城际交通'
-                  }[o?['category'] ?? m['document']?['category']] ?? '未识别'}'),
-              if (paymentTime(m, 'rideDateTime') != null)
-                Text(
-                    '乘车时间：${formatBeijingTimestamp(paymentTime(m, 'rideDateTime'))}'),
-              if (paymentTime(m, 'paymentDateTime') != null)
-                Text(
-                    '支付时间：${formatBeijingTimestamp(paymentTime(m, 'paymentDateTime'))}'),
-              if (m['timeOverrides'] != null)
-                const Text('时间已对照原图纠正（保留 OCR 原文）'),
-              if (o?['paymentTransactionId'] != null)
-                SelectableText('交易单号：${o['paymentTransactionId']}'),
-              const SizedBox(height: 12),
-              if (isScreenshot(m))
-                SizedBox(
-                    height: 300,
-                    width: double.infinity,
-                    child: InteractiveViewer(
-                        minScale: .5,
-                        maxScale: 8,
-                        child: Image.file(File(m['path']),
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => const Center(
-                                child: Text('图片无法读取，请检查文件或重新导入'))))),
-              if ((m['path'] as String? ?? '').toLowerCase().endsWith('.pdf'))
-                PdfPreviewPanel(
-                    key: ValueKey('pending-preview-${item.id}'),
-                    material: m,
-                    title: '材料原件',
-                    loadPreview: widget.loadPreview),
-              if ((m['text'] ?? o?['text'] ?? '').toString().isNotEmpty)
-                ExpansionTile(
-                    key: ValueKey('text-${item.id}'),
-                    title: const Text('识别原文'),
-                    children: [
-                      Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: SelectableText(m['text'] ?? o?['text'] ?? ''))
-                    ]),
-            ],
-          ]))),
+          child: LayoutBuilder(
+              builder: (context, space) => SingleChildScrollView(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                        Text(item.title,
+                            style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        SelectableText(item.reason),
+                        if (item.state != 'pending')
+                          Text(item.state == 'ignored' ? '状态：已忽略' : '状态：已解决',
+                              style: const TextStyle(color: Colors.teal)),
+                        if (item.kind == 'mail' &&
+                            item.state == 'pending' &&
+                            widget.onImportPdfs != null) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                              height:
+                                  (space.maxHeight - 150).clamp(220.0, 600.0),
+                              child: PendingPdfDropArea(
+                                  key: ValueKey('mail-drop-${item.id}'),
+                                  enabled: !busy,
+                                  onFiles: (paths) => apply(
+                                      () => widget.onImportPdfs!(
+                                          copyTask(task), item, paths),
+                                      success: 'PDF 已导入并匹配，已关闭对应邮件待办'))),
+                        ],
+                        if (m != null) ...[
+                          const SizedBox(height: 10),
+                          SelectableText(
+                              '文件：${m['name'] ?? ''}\n路径：${m['path'] ?? ''}'),
+                          if (amount is int)
+                            Text('识别／修正金额：¥${formatMoney(amount)}'),
+                          PaymentAmountEvidence(material: m),
+                          Text('类别：${const {
+                                'local': '市内交通',
+                                'hotel': '酒店住宿',
+                                'intercity': '城际交通'
+                              }[o?['category'] ?? m['document']?['category']] ?? '未识别'}'),
+                          if (paymentTime(m, 'rideDateTime') != null)
+                            Text(
+                                '乘车时间：${formatBeijingTimestamp(paymentTime(m, 'rideDateTime'))}'),
+                          if (paymentTime(m, 'paymentDateTime') != null)
+                            Text(
+                                '支付时间：${formatBeijingTimestamp(paymentTime(m, 'paymentDateTime'))}'),
+                          if (m['timeOverrides'] != null)
+                            const Text('时间已对照原图纠正（保留 OCR 原文）'),
+                          if (o?['paymentTransactionId'] != null)
+                            SelectableText('交易单号：${o['paymentTransactionId']}'),
+                          const SizedBox(height: 12),
+                          if (isScreenshot(m))
+                            SizedBox(
+                                height: 300,
+                                width: double.infinity,
+                                child: InteractiveViewer(
+                                    minScale: .5,
+                                    maxScale: 8,
+                                    child: Image.file(File(m['path']),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Center(
+                                                child: Text(
+                                                    '图片无法读取，请检查文件或重新导入'))))),
+                          if ((m['path'] as String? ?? '')
+                              .toLowerCase()
+                              .endsWith('.pdf'))
+                            PdfPreviewPanel(
+                                key: ValueKey('pending-preview-${item.id}'),
+                                material: m,
+                                title: '材料原件',
+                                loadPreview: widget.loadPreview),
+                          if ((m['text'] ?? o?['text'] ?? '')
+                              .toString()
+                              .isNotEmpty)
+                            ExpansionTile(
+                                key: ValueKey('text-${item.id}'),
+                                title: const Text('识别原文'),
+                                children: [
+                                  Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: SelectableText(
+                                          m['text'] ?? o?['text'] ?? ''))
+                                ]),
+                        ],
+                      ])))),
       const Divider(),
       Wrap(spacing: 8, runSpacing: 6, children: [
+        if (item.downloadUrl != null &&
+            isOfficialInvoiceLink(item.downloadUrl!))
+          OutlinedButton.icon(
+              icon: const Icon(Icons.open_in_browser),
+              label: const Text('打开官方下载页'),
+              onPressed: busy
+                  ? null
+                  : () async {
+                      try {
+                        await openOfficialInvoiceLink(item.downloadUrl!);
+                      } catch (e) {
+                        if (mounted) setState(() => error = '$e');
+                      }
+                    }),
         if (item.state == 'pending') ...[
           FilledButton(
               onPressed: busy
@@ -208,6 +260,8 @@ class _PendingIssuesDialogState extends State<PendingIssuesDialog> {
                     style: const TextStyle(color: Colors.teal)),
               if (error != null)
                 Text(error!, style: const TextStyle(color: Colors.red)),
+              if (notice != null)
+                Text(notice!, style: const TextStyle(color: Colors.teal)),
               if (busy) const LinearProgressIndicator(),
               const SizedBox(height: 12),
               Expanded(child: LayoutBuilder(builder: (context, size) {

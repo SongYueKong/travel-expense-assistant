@@ -1,4 +1,4 @@
-"""仅支持已核实的17win公开发票短链接；不执行页面脚本或读取登录凭据。"""
+"""17win直接PDF下载及51发票官方网页入口；不执行页面脚本或读取登录凭据。"""
 import re
 from html import unescape
 from urllib.parse import urlsplit
@@ -18,8 +18,12 @@ def invoice_links(text):
     for value in re.findall(r'https://[^\s<>"\x27]+',unescape(text)):
         value=value.rstrip('。，,;；)）')
         parsed=urlsplit(value)
-        if parsed.hostname=='t.17win.com' and value not in result:
-            try:validate_url(value)
+        if ((parsed.hostname=='t.17win.com') or
+            (parsed.hostname=='a.51fapiao.cn' and re.fullmatch(r'/v/[A-Za-z0-9]+',parsed.path))) and value not in result:
+            try:
+                if parsed.hostname=='a.51fapiao.cn':
+                    if parsed.scheme!='https' or parsed.username or parsed.password or parsed.port not in (None,443):continue
+                else:validate_url(value)
             except ValueError:continue
             result.append(value)
     return result[:3]

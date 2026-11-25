@@ -1,3 +1,4 @@
+import 'supplement_pdf_importer.dart';
 import 'payment_amount_evidence.dart';
 import 'export_review.dart';
 import 'invoice_bundle.dart';
@@ -373,6 +374,9 @@ class _WorkspaceState extends State<Workspace> {
           onRetry: (source) =>
               MaterialMerger(engine!, '$projectRoot/.local/materials')
                   .merge(source),
+          onImportPdfs: (source, item, paths) =>
+              SupplementPdfImporter(engine!, '$projectRoot/.local/materials')
+                  .importFiles(source, paths, mail: item),
           onResolve: resolvePending));
 
   Future<Map<String, dynamic>?> resolvePending(
@@ -620,30 +624,18 @@ class _WorkspaceState extends State<Workspace> {
   }
 
   Future<void> addGroup() async {
-    final group = await showDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AddGroup(
-        engine: engine!,
-        timeSettings: timeSettingsOf(task!),
-        toleranceCents: task!['toleranceCents'],
-        existingPictures: groups
-            .expand((g) => g['payments'] as List)
-            .map((p) => p['path'] as String)
-            .toSet(),
-        existingPaymentMaterials:
-            groups.expand((g) => records(g['payments'])).toList(),
-      ),
-    );
-    if (group != null) {
-      await run(() async {
-        if (groups.any((g) => g['hash'] == group['hash'])) {
-          throw StateError('这张发票已经导入');
-        }
-        (task!['groups'] as List).add(group);
-        await save();
-      });
-    }
+    final files = await openFiles(acceptedTypeGroups: [
+      const XTypeGroup(label: '发票／行程单 PDF', extensions: ['pdf'])
+    ]);
+    if (files.isEmpty || !mounted) return;
+    await run(() async {
+      final updated =
+          await SupplementPdfImporter(engine!, '$projectRoot/.local/materials')
+              .importFiles(task!, files.map((f) => f.path).toList());
+      await persistAssociationTask(updated);
+      status = '材料已识别并按现有规则匹配；有歧义或未识别的项目可在待处理事项中核对／手工录入';
+      message(status);
+    });
   }
 
   Future<void> importFolder() async {
@@ -1297,6 +1289,12 @@ class _AddGroupState extends State<AddGroup> {
         final item = await inspect(file.path);
         if (kind == 'invoice') {
           invoice = item;
+          final value = item['document']?['totalCents'];
+          if (value is int) amount.text = formatMoney(value);
+          if (['hotel', 'local', 'intercity']
+              .contains(item['document']?['category'])) {
+            category = item['document']['category'];
+          }
           break;
         }
         if (kind == 'itinerary') {
